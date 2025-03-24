@@ -57,10 +57,15 @@ class _RecordingsPageState extends State<RecordingsPage> {
           child: ListView(
             children: [
               _buildTextFormField('文件名', _fileNameController),
+              const SizedBox(height: 16),
               _buildTextFormField('StartTC', _startTCController),
+              const SizedBox(height: 16),
               _buildTextFormField('场', _sceneController),
+              const SizedBox(height: 16),
               _buildTextFormField('镜', _takeController),
+              const SizedBox(height: 16),
               _buildTextFormField('次', _slateController),
+              const SizedBox(height: 24),
               _buildDiscardSwitch(),
               _buildTextFormField('备注', _notesController),
               const SizedBox(height: 20),
@@ -78,10 +83,16 @@ class _RecordingsPageState extends State<RecordingsPage> {
   }
 
   Widget _buildTextFormField(String label, TextEditingController controller) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(labelText: label),
-      validator: (value) => value!.isEmpty ? '请输入$label' : null,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        ),
+        validator: (value) => value!.isEmpty ? '请输入$label' : null,
+      ),
     );
   }
 

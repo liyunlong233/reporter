@@ -25,8 +25,10 @@ class MyApp extends StatelessWidget {
       color: Colors.black,
       size: 24,
     ),
-    textTheme: Theme.of(context).textTheme.apply(
-      fontFamily: 'MaterialIcons',
+    textTheme: Theme.of(context).textTheme.copyWith(
+      bodyLarge: TextStyle(fontFamily: 'NotoSansSC'),
+      bodyMedium: TextStyle(fontFamily: 'NotoSansSC'),
+      titleLarge: TextStyle(fontFamily: 'NotoSansSC'),
     ),
   ),
       initialRoute: '/',
