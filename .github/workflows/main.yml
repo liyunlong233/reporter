@@ -1,43 +1,40 @@
-name: Build Platforms
+name: Flutter CI
+
+# 创建触发打包条件：只要推送tag，就会触发版本打包
 
 on:
   push:
-    branches: [ main ]
-
+    tags:
+      - v*
+    
 jobs:
   build:
+    # This job will run on ubuntu virtual machine
     runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: write
     steps:
-      - uses: actions/checkout@v3
-      
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-      
-      - name: Install dependencies
-        run: flutter pub get
-      
-      - name: Build Android
-        run: flutter build apk --release
-      
-      - name: Build Web
-        run: flutter build web --release
-      
-      - name: Build Windows
-        run: flutter build windows --release
-      
-      - name: Build Linux
-        run: flutter build linux --release
-      
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: builds
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/web
-            build/windows/runner/Release
-            build/linux/release
+    
+    # Setup Java environment in order to build the Android app.
+    - uses: actions/checkout@v1
+      with:
+    # 使用office分支的代码
+        path: office
+    - uses: actions/setup-java@v1
+      with:
+        java-version: '12.x'
+    
+    # Setup the flutter environment.
+    - uses: subosito/flutter-action@v1
+      with:
+        channel: 'stable' # 'dev', 'alpha', default to: 'stable'
+        # flutter-version: '1.12.x' # you can also specify exact version of flutter
+    
+    # Get flutter dependencies.
+    - run: flutter pub get    
+    # Build apk
+    - run: flutter build apk --target-platform android-arm
+    # 发包
+    - name: Release apk
+      uses: ncipollo/release-action@v1.5.0
+      with:
+        artifacts: "build/app/outputs/apk/release/*.apk"
+        token: $
