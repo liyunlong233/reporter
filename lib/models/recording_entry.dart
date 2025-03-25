@@ -8,6 +8,7 @@ class RecordingEntry {
   String notes;
   int trackConfigId;
   int? id;
+  DateTime createdAt;
 
   RecordingEntry({
     this.id,
@@ -19,6 +20,7 @@ class RecordingEntry {
     required this.isDiscarded,
     required this.notes,
     required this.trackConfigId,
+    required this.createdAt,
   });
 
   Map<String, dynamic> toMap() => {
@@ -31,17 +33,19 @@ class RecordingEntry {
     'isDiscarded': isDiscarded ? 1 : 0,
     'notes': notes,
     'trackConfigId': trackConfigId,
+    'createdAt': createdAt.toIso8601String(),
   };
 
   factory RecordingEntry.fromMap(Map<String, dynamic> map) => RecordingEntry(
     id: map['id'],
     fileName: map['fileName'],
     startTC: map['startTC'],
-    scene: map['scene'],
-    take: map['take'],
-    slate: map['slate'],
+    scene: map['scene'].toString(),
+    take: map['take'].toString(),
+    slate: map['slate'].toString(),
     isDiscarded: map['isDiscarded'] == 1,
     notes: map['notes'],
-    trackConfigId: map['trackConfigId'],
+    trackConfigId: map['trackConfigId'] ?? 0,
+    createdAt: DateTime.parse(map['createdAt']),
   );
 }

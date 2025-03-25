@@ -51,11 +51,25 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
           await db.execute('ALTER TABLE recording_entry ADD COLUMN isDiscarded INTEGER');
+        }
+        if (oldVersion < 3) {
+          await db.execute('ALTER TABLE recording_entry ADD COLUMN createdAt INTEGER');
+        }
+        if (oldVersion < 4) {
+          await db.execute('ALTER TABLE recording_entry ADD COLUMN tempScene TEXT');
+          await db.execute('UPDATE recording_entry SET tempScene = CAST(scene AS TEXT)');
+          await db.execute('ALTER TABLE recording_entry DROP COLUMN scene');
+          await db.execute('ALTER TABLE recording_entry RENAME COLUMN tempScene TO scene');
+          
+          await db.execute('ALTER TABLE recording_entry ADD COLUMN tempTake TEXT');
+          await db.execute('UPDATE recording_entry SET tempTake = CAST(take AS TEXT)');
+          await db.execute('ALTER TABLE recording_entry DROP COLUMN take');
+          await db.execute('ALTER TABLE recording_entry RENAME COLUMN tempTake TO take');
         }
       },
     );
@@ -96,12 +110,13 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fileName TEXT,
         startTC TEXT,
-        scene INTEGER,
-        take INTEGER,
+        scene TEXT,
+        take TEXT,
         slate TEXT,
         isDiscarded INTEGER,
         notes TEXT,
-        trackConfigId INTEGER
+        trackConfigId INTEGER,
+        createdAt INTEGER
       )
     ''');
   }

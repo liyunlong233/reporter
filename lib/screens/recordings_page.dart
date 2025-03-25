@@ -35,9 +35,56 @@ class _RecordingsPageState extends State<RecordingsPage> {
   @override
   void initState() {
     super.initState();
-    _loadTrackConfig();
-    _loadExistingRecordings();
-    _loadLastInputValues();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadTrackConfig();
+      await _loadExistingRecordings();
+      await _loadLastInputValues();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fileNameController.dispose();
+    _startTCController.dispose();
+    _sceneController.dispose();
+    _takeController.dispose();
+    _slateController.dispose();
+    _notesController.dispose();
+    _currentEntryId = null; // 新增状态清理
+    super.dispose();
+  }
+
+  Future<void> _saveCurrentInput() async {
+    if (_currentEntryId == null && !_isDiscarded) {
+      final newEntry = await _dbHelper.saveRecordingEntry(
+        RecordingEntry(
+          fileName: _fileNameController.text,
+          startTC: _startTCController.text,
+          scene: _sceneController.text,
+          take: _takeController.text,
+          slate: _slateController.text,
+          notes: _notesController.text,
+          isDiscarded: _isDiscarded,
+          trackConfigId: _currentTrackConfig?.id ?? 0,
+          createdAt: DateTime.now(),
+        ),
+      );
+      setState(() => _currentEntryId = newEntry);
+    }
+  }
+
+  Future<void> _clearForm() async {
+    setState(() {
+      _currentEntryId = null;
+      _isDiscarded = false;
+      _fileNameController.clear();
+      _startTCController.clear();
+      _sceneController.clear();
+      _takeController.clear();
+      _slateController.clear();
+      _notesController.clear();
+    });
+    await _loadExistingRecordings();
   }
 
   Future<void> _loadLastInputValues() async {
@@ -54,31 +101,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
     }
   }
 
-  Future<void> _saveCurrentInput() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_fileNameController.text.isEmpty) return;
-    
-    final entry = RecordingEntry(
-      id: _currentEntryId,
-      fileName: _fileNameController.text,
-      startTC: _startTCController.text,
-      scene: _sceneController.text,
-      take: _takeController.text,
-      slate: _slateController.text,
-      notes: _notesController.text,
-      isDiscarded: _isDiscarded,
-      trackConfigId: _currentTrackConfig?.id ?? 0,
-    );
-    await _dbHelper.saveRecordingEntry(entry);
-  }
 
-  void _clearForm() {
-    _currentEntryId = null;
-    _slateController.clear();
-    _startTCController.clear();
-    _notesController.clear();
-    _isDiscarded = false;
-  }
 
   Future<void> _loadTrackConfig() async {
     final config = await _dbHelper.getLatestTrackConfig();
@@ -225,6 +248,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
           isDiscarded: _isDiscarded,
           notes: _notesController.text,
           trackConfigId: _currentTrackConfig?.id ?? 0,
+          createdAt: DateTime.now(),
         );
 
         await _dbHelper.saveRecordingEntry(entry);
