@@ -99,6 +99,7 @@
       release:
         name: "Release"
         runs-on: "ubuntu-latest"
+        needs: [flutter-build-android] 
         permissions: write-all
         steps:
           - name: Clone repository
