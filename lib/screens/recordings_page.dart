@@ -74,14 +74,10 @@ class _RecordingsPageState extends State<RecordingsPage> {
 
   void _clearForm() {
     _currentEntryId = null;
-    _fileNameController.clear();
-    _startTCController.clear();
-    _sceneController.clear();
-    _takeController.clear();
     _slateController.clear();
+    _startTCController.clear();
     _notesController.clear();
     _isDiscarded = false;
-    _formKey.currentState?.reset();
   }
 
   Future<void> _loadTrackConfig() async {
@@ -117,7 +113,19 @@ class _RecordingsPageState extends State<RecordingsPage> {
             children: [
               _buildTextFormField('文件名', _fileNameController),
               const SizedBox(height: 16),
-              _buildTextFormField('StartTC', _startTCController),
+              Row(
+                children: [
+                  Expanded(child: _buildTextFormField('StartTC', _startTCController)),
+                  IconButton(
+                    icon: Icon(Icons.access_time),
+                    onPressed: () {
+                      final now = DateTime.now();
+                      final formattedTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}:00';
+                      _startTCController.text = formattedTime;
+                    },
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               _buildTextFormField('场', _sceneController),
               const SizedBox(height: 16),
@@ -164,23 +172,46 @@ class _RecordingsPageState extends State<RecordingsPage> {
     );
   }
 
+  Future<void> _autoFillStartTC() async {
+    if (_startTCController.text.isEmpty) {
+      final now = DateTime.now();
+      _startTCController.text = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}:00';
+    }
+  }
+
   Future<void> _addEntry() async {
+    await _autoFillStartTC();
     _currentEntryId = null;
     if (_formKey.currentState!.validate()) {
-      final entry = RecordingEntry(
-        fileName: _fileNameController.text,
-        startTC: _startTCController.text,
-        scene: _sceneController.text,
-        take: _takeController.text,
-        slate: _slateController.text,
-        isDiscarded: _isDiscarded,
-        notes: _notesController.text,
-        trackConfigId: _currentTrackConfig?.id ?? 0,
-      );
+      final currentFileName = _fileNameController.text;
+      final match = RegExp(r'(\D*)(\d+)').firstMatch(currentFileName);
+      final prefix = match?.group(1) ?? '';
+      final numberStr = match?.group(2) ?? '000';
+      
+      try {
+        var number = int.parse(numberStr);
+        number++;
+        final newFileName = '$prefix${number.toString().padLeft(3, '0')}';
+        
+        final entry = RecordingEntry(
+          fileName: currentFileName,
+          startTC: _startTCController.text,
+          scene: _sceneController.text,
+          take: _takeController.text,
+          slate: _slateController.text,
+          isDiscarded: _isDiscarded,
+          notes: _notesController.text,
+          trackConfigId: _currentTrackConfig?.id ?? 0,
+        );
 
-      await _dbHelper.saveRecordingEntry(entry);
-      setState(() => _entries.add(entry));
-      _clearForm();
+        await _dbHelper.saveRecordingEntry(entry);
+        setState(() => _entries.add(entry));
+        _clearForm();
+        _fileNameController.text = newFileName;
+      } catch (e) {
+        _fileNameController.text = currentFileName;
+        _clearForm();
+      }
     }
   }
 
