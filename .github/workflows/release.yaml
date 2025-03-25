@@ -151,5 +151,5 @@
             uses: softprops/action-gh-release@v2
             with:
               files: |
-                Reporter_android_*.apk
+                Reporter_android_${{ env.tag }}.apk
                 Reporter_ios_*.ipa
