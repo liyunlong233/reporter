@@ -45,5 +45,5 @@ class TrackConfig {
     'track8': track8,
   };
   
-  List<String> get trackNames => [track1, track2, track3, track4, track5, track6, track7, track8].where((track) => track.isNotEmpty).toList();
+  List<String> get trackNames => [track1, track2, track3, track4, track5, track6, track7, track8];
 }
