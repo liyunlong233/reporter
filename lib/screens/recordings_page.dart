@@ -23,7 +23,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
   final _formKey = GlobalKey<FormState>();
   final List<RecordingEntry> _entries = [];
   TrackConfig? _currentTrackConfig;
-
+  int? _currentEntryId;
   final TextEditingController _fileNameController = TextEditingController();
   final TextEditingController _startTCController = TextEditingController();
   final TextEditingController _sceneController = TextEditingController();
@@ -36,6 +36,52 @@ class _RecordingsPageState extends State<RecordingsPage> {
   void initState() {
     super.initState();
     _loadTrackConfig();
+    _loadExistingRecordings();
+    _loadLastInputValues();
+  }
+
+  Future<void> _loadLastInputValues() async {
+    final lastEntry = await _dbHelper.getLatestRecordingEntry();
+    if (lastEntry != null) {
+      _currentEntryId = lastEntry.id;
+      _fileNameController.text = lastEntry.fileName;
+      _startTCController.text = lastEntry.startTC;
+      _sceneController.text = lastEntry.scene;
+      _takeController.text = lastEntry.take;
+      _slateController.text = lastEntry.slate;
+      _notesController.text = lastEntry.notes;
+      _isDiscarded = lastEntry.isDiscarded;
+    }
+  }
+
+  Future<void> _saveCurrentInput() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_fileNameController.text.isEmpty) return;
+    
+    final entry = RecordingEntry(
+      id: _currentEntryId,
+      fileName: _fileNameController.text,
+      startTC: _startTCController.text,
+      scene: _sceneController.text,
+      take: _takeController.text,
+      slate: _slateController.text,
+      notes: _notesController.text,
+      isDiscarded: _isDiscarded,
+      trackConfigId: _currentTrackConfig?.id ?? 0,
+    );
+    await _dbHelper.saveRecordingEntry(entry);
+  }
+
+  void _clearForm() {
+    _currentEntryId = null;
+    _fileNameController.clear();
+    _startTCController.clear();
+    _sceneController.clear();
+    _takeController.clear();
+    _slateController.clear();
+    _notesController.clear();
+    _isDiscarded = false;
+    _formKey.currentState?.reset();
   }
 
   Future<void> _loadTrackConfig() async {
@@ -43,10 +89,23 @@ class _RecordingsPageState extends State<RecordingsPage> {
     setState(() => _currentTrackConfig = config);
   }
 
+  Future<void> _loadExistingRecordings() async {
+    final entries = await _dbHelper.getAllRecordingEntries();
+    setState(() => _entries
+      ..clear()
+      ..addAll(entries));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: () async {
+        await _saveCurrentInput();
+        return true;
+      },
+      child: Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: true,
         title: const Text('录音记录'),
         actions: [IconButton(onPressed: _generatePDF, icon: const Icon(Icons.picture_as_pdf))],
       ),
@@ -79,6 +138,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
           ),
         ),
       ),
+    )
     );
   }
 
@@ -91,7 +151,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
           labelText: label,
           contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         ),
-        validator: (value) => value!.isEmpty ? '请输入$label' : null,
+        validator: (value) => label == '文件名' ? (value!.isEmpty ? '请输入$label' : null) : null,
       ),
     );
   }
@@ -105,6 +165,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
   }
 
   Future<void> _addEntry() async {
+    _currentEntryId = null;
     if (_formKey.currentState!.validate()) {
       final entry = RecordingEntry(
         fileName: _fileNameController.text,
@@ -317,15 +378,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
     ];
   }
 
-  void _clearForm() {
-    _fileNameController.clear();
-    _startTCController.clear();
-    _sceneController.clear();
-    _takeController.clear();
-    _slateController.clear();
-    _notesController.clear();
-    setState(() => _isDiscarded = false);
-  }
+  
 
   List<Widget> _buildEntryList() {
     return _entries.map((entry) => ListTile(

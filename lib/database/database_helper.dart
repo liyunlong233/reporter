@@ -51,11 +51,11 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 1,
       onCreate: _createDB,
-      onUpgrade: (db, oldVersion, newVersion) {
-        if(oldVersion < 2) {
-          db.execute('ALTER TABLE app_settings ADD COLUMN projectName TEXT');
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 1) {
+          await _createDB(db, newVersion);
         }
       },
     );
@@ -99,16 +99,18 @@ class DatabaseHelper {
         scene TEXT,
         take TEXT,
         slate TEXT,
-        isDiscarded INTEGER,
-        notes TEXT,
-        trackConfigId INTEGER
+        soundRemarks TEXT,
+        trackConfigId INTEGER,
+        trackRemarks TEXT,
+        trackNames TEXT
       )
     ''');
   }
 
+
   // 应用设置操作方法
   Future<int> saveAppSettings(AppSettings settings) async {
-    final db = await instance.database;
+    final db = await database;
     return db.insert('app_settings', settings.toMap());
   }
 
@@ -120,12 +122,12 @@ class DatabaseHelper {
 
   // 轨道配置操作方法
   Future<int> saveTrackConfig(TrackConfig config) async {
-    final db = await instance.database;
+    final db = await database;
     return db.insert('track_config', config.toMap());
   }
 
   Future<TrackConfig?> getLatestTrackConfig() async {
-    final db = await instance.database;
+    final db = await database;
     final maps = await db.query(
       'track_config',
       orderBy: 'id DESC',
@@ -135,5 +137,15 @@ class DatabaseHelper {
       return TrackConfig.fromMap(maps.first);
     }
     return null;
+  }
+
+  Future<RecordingEntry?> getLatestRecordingEntry() async {
+    final db = await database;
+    final maps = await db.query(
+      'recording_entry',
+      orderBy: 'id DESC',
+      limit: 1,
+    );
+    return maps.isNotEmpty ? RecordingEntry.fromMap(maps.first) : null;
   }
 }

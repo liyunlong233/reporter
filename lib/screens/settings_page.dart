@@ -10,8 +10,44 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  final _formKey = GlobalKey<FormState>();
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
   final _dbHelper = DatabaseHelper.instance;
+
+  Future<void> _loadSettings() async {
+    final settings = await _dbHelper.getAppSettings();
+    if (settings != null) {
+      _projectNameController.text = settings.projectName;
+      _companyController.text = settings.productionCompany;
+      _engineerController.text = settings.soundEngineer;
+      _boomOperatorController.text = settings.boomOperator;
+      _equipmentController.text = settings.equipmentModel;
+      _formatController.text = settings.fileFormat;
+      _frameRateController.text = settings.frameRate.toString();
+      _rollNumberController.text = settings.rollNumber;
+      _selectedDate = settings.projectDate;
+    }
+  }
+
+  Future<void> _saveCurrentInput() async {
+    final settings = AppSettings(
+      projectName: _projectNameController.text,
+      productionCompany: _companyController.text,
+      soundEngineer: _engineerController.text,
+      boomOperator: _boomOperatorController.text,
+      equipmentModel: _equipmentController.text,
+      fileFormat: _formatController.text,
+      frameRate: double.tryParse(_frameRateController.text) ?? 24.0,
+      rollNumber: _rollNumberController.text,
+      projectDate: _selectedDate,
+    );
+    await _dbHelper.saveAppSettings(settings);
+  }
+  final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _companyController = TextEditingController();
   final TextEditingController _engineerController = TextEditingController();
@@ -25,40 +61,49 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('基本设置')),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              _buildTextFormField('项目名称', _projectNameController),
-              _buildTextFormField('制作公司', _companyController),
-              _buildTextFormField('录音师', _engineerController),
-              _buildTextFormField('话筒员', _boomOperatorController),
-              _buildTextFormField('设备型号', _equipmentController),
-              _buildTextFormField('文件格式', _formatController),
-              _buildTextFormField('项目帧率', _frameRateController),
-              _buildDatePicker(),
-              _buildTextFormField('卷号', _rollNumberController),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: _saveSettings,
-                child: const Text('保存设置', style: TextStyle(fontSize: 18)),
-              ),
-            ],
+    return WillPopScope(
+      onWillPop: () async {
+        await _saveCurrentInput();
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: true,
+          title: const Text('基本设置'),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              children: [
+                _buildTextFormField('项目名称', _projectNameController, isRequired: true),
+                _buildTextFormField('制作公司', _companyController),
+                _buildTextFormField('录音师', _engineerController),
+                _buildTextFormField('话筒员', _boomOperatorController),
+                _buildTextFormField('设备型号', _equipmentController),
+                _buildTextFormField('文件格式', _formatController),
+                _buildTextFormField('项目帧率', _frameRateController),
+                _buildDatePicker(),
+                _buildTextFormField('卷号', _rollNumberController),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: _saveSettings,
+                  child: const Text('保存设置', style: TextStyle(fontSize: 18)),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTextFormField(String label, TextEditingController controller) {
+  Widget _buildTextFormField(String label, TextEditingController controller, {bool isRequired = false}) {
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(labelText: label),
-      validator: (value) => value!.isEmpty ? '请输入$label' : null,
+      validator: isRequired ? (value) => value!.isEmpty ? '请输入$label' : null : null,
     );
   }
 
@@ -85,14 +130,14 @@ class _SettingsPageState extends State<SettingsPage> {
     if (_formKey.currentState!.validate()) {
       final settings = AppSettings(
         projectName: _projectNameController.text,
-        productionCompany: _companyController.text,
-        soundEngineer: _engineerController.text,
-        boomOperator: _boomOperatorController.text,
-        equipmentModel: _equipmentController.text,
-        fileFormat: _formatController.text,
-        frameRate: double.parse(_frameRateController.text),
+        productionCompany: _companyController.text.isEmpty ? '未输入' : _companyController.text,
+        soundEngineer: _engineerController.text.isEmpty ? '未输入' : _engineerController.text,
+        boomOperator: _boomOperatorController.text.isEmpty ? '未输入' : _boomOperatorController.text,
+        equipmentModel: _equipmentController.text.isEmpty ? '未输入' : _equipmentController.text,
+        fileFormat: _formatController.text.isEmpty ? '未输入' : _formatController.text,
+        rollNumber: _rollNumberController.text.isEmpty ? '未输入' : _rollNumberController.text,
+        frameRate: double.tryParse(_frameRateController.text) ?? 0,
         projectDate: _selectedDate,
-        rollNumber: _rollNumberController.text,
       );
 
       await _dbHelper.saveAppSettings(settings);
