@@ -51,11 +51,11 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 1) {
-          await _createDB(db, newVersion);
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE recording_entry ADD COLUMN isDiscarded INTEGER');
         }
       },
     );
@@ -96,13 +96,12 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fileName TEXT,
         startTC TEXT,
-        scene TEXT,
-        take TEXT,
+        scene INTEGER,
+        take INTEGER,
         slate TEXT,
-        soundRemarks TEXT,
-        trackConfigId INTEGER,
-        trackRemarks TEXT,
-        trackNames TEXT
+        isDiscarded INTEGER,
+        notes TEXT,
+        trackConfigId INTEGER
       )
     ''');
   }

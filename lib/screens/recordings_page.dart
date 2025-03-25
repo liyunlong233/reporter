@@ -96,8 +96,31 @@ class _RecordingsPageState extends State<RecordingsPage> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        await _saveCurrentInput();
-        return true;
+        if (Platform.isIOS) {
+          await _saveCurrentInput();
+          return true;
+        }
+        final shouldPop = await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('保存更改'),
+            content: const Text('是否要保存当前输入再退出？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  await _saveCurrentInput();
+                  Navigator.pop(context, true);
+                },
+                child: const Text('保存'),
+              ),
+            ],
+          ),
+        );
+        return shouldPop ?? false;
       },
       child: Scaffold(
       appBar: AppBar(
