@@ -41,8 +41,10 @@
           - name: Set up Flutter
             uses: subosito/flutter-action@v2
             with:
-              channel: stable
-              flutter-version-file: pubspec.yaml
+              
+              flutter-version: '3.13.0'
+          - name: Verify Flutter environment
+            run: flutter doctor
           - name: Get Flutter dependencies
             run: flutter pub get
             shell: bash
@@ -75,8 +77,10 @@
           - name: Set up Flutter
             uses: subosito/flutter-action@v2
             with:
-              channel: stable
-              flutter-version-file: pubspec.yaml
+              
+              flutter-version: '3.13.0'
+          - name: Verify Flutter environment
+            run: flutter doctor
           - run: flutter pub get
           - name: Build IPA
             run: |

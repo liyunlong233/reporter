@@ -18,6 +18,10 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # of the product and file versions while build-number is used as the build suffix.
 version: 1.0.0+1
 
+environment:
+  sdk: ^3.7.0
+  flutter: '>=3.13.0'
+
 flutter:
   uses-material-design: true
   assets:
@@ -29,8 +33,7 @@ flutter:
         - asset: assets/fonts/NotoSansSC-Regular.ttf
 
 
-environment:
-  sdk: ^3.7.0
+
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
