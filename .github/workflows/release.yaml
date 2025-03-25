@@ -84,13 +84,19 @@
           - run: flutter pub get
           - name: Build IPA
             run: |
-              flutter build ios --release --no-codesign
+              flutter build ios --release --no-codesign || exit 1
+              
+              if [ ! -d "build/ios/iphoneos/Runner.app" ]; then
+                echo "❌ Error: Runner.app not found after build!"
+                exit 1
+              fi
+          
           - name: Create IPA
             run: |
               mkdir -p Payload
-              [ -d build/ios/iphoneos/Runner.app ] || echo "Runner.app not exist!" && exit 1
-              cp -R build/ios/iphoneos/Runner.app/ Payload/Runner.app
+              cp -R build/ios/iphoneos/Runner.app Payload/
               zip -q -r Reporter_ios_${tag}_no_sign.ipa Payload
+              rm -rf Payload
           - name: Upload iOS build
             uses: actions/upload-artifact@v4
             with:
