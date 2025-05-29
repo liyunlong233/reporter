@@ -26,46 +26,94 @@ class PdfGenerator {
       theme: pw.ThemeData.withFont(base: chineseFont),
     );
 
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4.landscape,
-        build: (context) => _buildPdfContent(
-          entries,
-          trackConfig,
-          appSettings,
-          logoBytes,
-          chineseFont,
+    final pages = _buildPdfContent(entries, trackConfig, appSettings, logoBytes, chineseFont);
+
+    for (var page in pages) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: pw.EdgeInsets.all(30),
+          build: (context) => page,
         ),
-      ),
-    );
+      );
+    }
 
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) => pdf.save(),
     );
   }
 
-  pw.Widget _buildPdfContent(
+  List<pw.Widget> _buildPdfContent(
     List<RecordingEntry> entries,
     TrackConfig? trackConfig,
     AppSettings? appSettings,
     Uint8List logoBytes,
     pw.Font chineseFont,
   ) {
-    return pw.Stack(
-      children: [
-        _buildLogo(logoBytes),
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
+    final pages = <pw.Widget>[];
+    var currentStart = 0;
+
+    pw.Widget _buildFirstPage(List<RecordingEntry> entries, TrackConfig? trackConfig,
+        AppSettings? appSettings, Uint8List logoBytes, pw.Font chineseFont) {
+      return pw.Stack(
+        children: [
+          _buildLogo(logoBytes),
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Header(text: '同期录音报告', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
+              _buildInfoTable(appSettings, chineseFont),
+              pw.SizedBox(height: 20),
+              _buildRecordingTable(entries, trackConfig, chineseFont),
+              if (entries.length == entries.length) _buildSignatureArea(chineseFont)
+            ],
+          ),
+        ],
+      );
+    }
+    final pageFormat = PdfPageFormat.a4;
+    final rowHeight = 15;
+    
+    // 首页布局（包含信息表）
+    final firstPageHeight = pageFormat.height - 200 - 200; // 扣除页眉、信息表高度和边距
+    final firstPageMaxEntries = (firstPageHeight / (rowHeight * 2)).floor();
+    
+    // 添加首页
+    if (entries.isNotEmpty) {
+      final firstPageEnd = firstPageMaxEntries.clamp(0, entries.length);
+      final firstPageEntries = entries.sublist(0, firstPageEnd);
+      pages.add(_buildFirstPage(firstPageEntries, trackConfig, appSettings, logoBytes, chineseFont));
+      currentStart = firstPageEnd;
+    }
+
+    // 后续页面布局（仅录音表格）
+    final subsequentPageHeight = pageFormat.height - 5;
+    final subsequentPageMaxEntries = (subsequentPageHeight / (rowHeight * 2)).floor();
+    
+    while (currentStart < entries.length) {
+      final currentEnd = (currentStart + subsequentPageMaxEntries).clamp(0, entries.length);
+      final pageEntries = entries.sublist(currentStart, currentEnd);
+      currentStart = currentEnd;
+      
+      pages.add(
+        pw.Stack(
           children: [
-            pw.Header(text: '同期录音报告', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
-            _buildInfoTable(appSettings, chineseFont),
-            pw.SizedBox(height: 20),
-            _buildRecordingTable(entries, trackConfig, chineseFont),
-            _buildSignatureArea(chineseFont),
+            _buildLogo(logoBytes),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Header(text: '同期录音报告', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
+                pw.SizedBox(height: 20),
+                _buildRecordingTable(pageEntries, trackConfig, chineseFont),
+                if (currentEnd >= entries.length) _buildSignatureArea(chineseFont)
+              ],
+            ),
           ],
-        ),
-      ],
-    );
+        )
+      );
+    }
+    
+    return pages;
   }
 
   Future<pw.Font> _loadChineseFont() async {
@@ -81,11 +129,11 @@ class PdfGenerator {
   pw.Widget _buildLogo(Uint8List logoBytes) {
     return pw.Positioned(
       right: 20,
-      top: 20,
+      top: 5,
       child: pw.Image(
         pw.MemoryImage(logoBytes),
-        width: 200,
-        height: 200,
+        width: 160,
+        height: 160,
       ),
     );
   }
