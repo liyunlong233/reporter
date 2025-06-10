@@ -19,14 +19,13 @@ class PdfGenerator {
     final chineseFont = await _loadChineseFont();
     final logoBytes = await _loadLogoImage();
     final entries = await _dbHelper.getAllRecordingEntries();
-    final trackConfig = await _dbHelper.getLatestTrackConfig();
     final appSettings = await _dbHelper.getAppSettings();
 
     final pdf = pw.Document(
       theme: pw.ThemeData.withFont(base: chineseFont),
     );
 
-    final pages = _buildPdfContent(entries, trackConfig, appSettings, logoBytes, chineseFont);
+    final pages = _buildPdfContent(entries, appSettings, logoBytes, chineseFont);
 
     for (var page in pages) {
       pdf.addPage(
@@ -45,7 +44,6 @@ class PdfGenerator {
 
   List<pw.Widget> _buildPdfContent(
     List<RecordingEntry> entries,
-    TrackConfig? trackConfig,
     AppSettings? appSettings,
     Uint8List logoBytes,
     pw.Font chineseFont,
@@ -53,8 +51,8 @@ class PdfGenerator {
     final pages = <pw.Widget>[];
     var currentStart = 0;
 
-    pw.Widget _buildFirstPage(List<RecordingEntry> entries, TrackConfig? trackConfig,
-        AppSettings? appSettings, Uint8List logoBytes, pw.Font chineseFont) {
+    pw.Widget _buildFirstPage(List<RecordingEntry> entries, AppSettings? appSettings,
+        Uint8List logoBytes, pw.Font chineseFont) {
       return pw.Stack(
         children: [
           _buildLogo(logoBytes),
@@ -64,7 +62,7 @@ class PdfGenerator {
               pw.Header(text: '同期录音报告', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
               _buildInfoTable(appSettings, chineseFont),
               pw.SizedBox(height: 20),
-              _buildRecordingTable(entries, trackConfig, chineseFont),
+              _buildRecordingTable(entries, chineseFont),
               if (entries.length == entries.length) _buildSignatureArea(chineseFont)
             ],
           ),
@@ -82,7 +80,7 @@ class PdfGenerator {
     if (entries.isNotEmpty) {
       final firstPageEnd = firstPageMaxEntries.clamp(0, entries.length);
       final firstPageEntries = entries.sublist(0, firstPageEnd);
-      pages.add(_buildFirstPage(firstPageEntries, trackConfig, appSettings, logoBytes, chineseFont));
+      pages.add(_buildFirstPage(firstPageEntries, appSettings, logoBytes, chineseFont));
       currentStart = firstPageEnd;
     }
 
@@ -104,7 +102,7 @@ class PdfGenerator {
               children: [
                 pw.Header(text: '同期录音报告', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
                 pw.SizedBox(height: 20),
-                _buildRecordingTable(pageEntries, trackConfig, chineseFont),
+                _buildRecordingTable(pageEntries, chineseFont),
                 if (currentEnd >= entries.length) _buildSignatureArea(chineseFont)
               ],
             ),
@@ -179,18 +177,17 @@ class PdfGenerator {
 
   pw.Widget _buildRecordingTable(
     List<RecordingEntry> entries,
-    TrackConfig? trackConfig,
     pw.Font chineseFont,
   ) {
     return pw.Table.fromTextArray(
-      headers: _getTableHeaders(trackConfig),
-      data: entries.map((e) => _formatEntry(e, trackConfig)).toList(),
+      headers: _getTableHeaders(),
+      data: entries.map((e) => _formatEntry(e)).toList(),
       headerStyle: pw.TextStyle(font: chineseFont),
       cellStyle: pw.TextStyle(font: chineseFont),
     );
   }
 
-  List<String> _getTableHeaders(TrackConfig? trackConfig) {
+  List<String> _getTableHeaders() {
     return [
       '文件名',
       'StartTC',
@@ -198,12 +195,19 @@ class PdfGenerator {
       '镜',
       '次',
       '标签',
-      ...trackConfig?.trackNames ?? [],
+      '轨道1',
+      '轨道2',
+      '轨道3',
+      '轨道4',
+      '轨道5',
+      '轨道6',
+      '轨道7',
+      '轨道8',
       '备注',
     ];
   }
 
-  List<String> _formatEntry(RecordingEntry entry, TrackConfig? trackConfig) {
+  List<String> _formatEntry(RecordingEntry entry) {
     return [
       entry.fileName,
       entry.startTC,
@@ -211,7 +215,14 @@ class PdfGenerator {
       entry.take,
       entry.slate,
       entry.isDiscarded ? '废' : '过/保',
-      ...List.generate(trackConfig?.trackNames.length ?? 0, (_) => ''),
+      entry.track1 ?? '',
+      entry.track2 ?? '',
+      entry.track3 ?? '',
+      entry.track4 ?? '',
+      entry.track5 ?? '',
+      entry.track6 ?? '',
+      entry.track7 ?? '',
+      entry.track8 ?? '',
       entry.notes,
     ];
   }

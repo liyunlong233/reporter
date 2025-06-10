@@ -12,45 +12,164 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final _dbHelper = DatabaseHelper.instance;
   AppSettings? _appSettings;
+  int _totalRecordings = 0;
+  int _activeRecordings = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _loadData();
   }
 
-  Future<void> _loadSettings() async {
+  Future<void> _loadData() async {
     final settings = await _dbHelper.getAppSettings();
-    setState(() => _appSettings = settings);
+    final recordings = await _dbHelper.getAllRecordingEntries();
+    setState(() {
+      _appSettings = settings;
+      _totalRecordings = recordings.length;
+      _activeRecordings = recordings.where((r) => !r.isDiscarded).length;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('同期录音报告系统')),
-      body: Padding(
+      appBar: AppBar(
+        title: const Text('同期录音报告系统'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadData,
+            tooltip: '刷新数据',
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadData,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildStatisticsCard(),
+              const SizedBox(height: 20),
+              _buildQuickActions(),
+              const SizedBox(height: 20),
+              _buildMainMenu(),
+            ],
+          ),
+        ),
+      ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: 'newRecording',
+            onPressed: () => Navigator.pushNamed(context, '/recordings'),
+            child: const Icon(Icons.add),
+            tooltip: '新建录音记录',
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            heroTag: 'clearData',
+            backgroundColor: Colors.red,
+            onPressed: _confirmClearAllData,
+            child: const Icon(Icons.delete_forever),
+            tooltip: '清空所有数据',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatisticsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSettingsCard('基本设置', Icons.settings, '/settings'),
-            const SizedBox(height: 20),
-            _buildSettingsCard('轨道配置', Icons.audiotrack, '/tracks'),
-            const SizedBox(height: 20),
-            _buildSettingsCard('录音记录', Icons.mic, '/recordings'),
+            const Text('数据统计', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem('总录音数', _totalRecordings.toString(), Icons.mic),
+                _buildStatItem('有效录音', _activeRecordings.toString(), Icons.check_circle),
+                _buildStatItem('废弃录音', (_totalRecordings - _activeRecordings).toString(), Icons.delete),
+              ],
+            ),
           ],
         ),
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 30),
-        child: ElevatedButton.icon(
-          icon: const Icon(Icons.delete_forever, color: Colors.white),
-          label: const Text('清空所有数据', style: TextStyle(color: Colors.white)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-          ),
-          onPressed: _confirmClearAllData,
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, size: 32, color: Theme.of(context).primaryColor),
+        const SizedBox(height: 8),
+        Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(fontSize: 14)),
+      ],
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('快速操作', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildActionChip('新建录音', Icons.add, () => Navigator.pushNamed(context, '/recordings')),
+                _buildActionChip('生成报告', Icons.picture_as_pdf, () => Navigator.pushNamed(context, '/recordings')),
+                _buildActionChip('基本设置', Icons.settings, () => Navigator.pushNamed(context, '/settings')),
+              ],
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildActionChip(String label, IconData icon, VoidCallback onTap) {
+    return ActionChip(
+      avatar: Icon(icon, size: 18),
+      label: Text(label),
+      onPressed: onTap,
+    );
+  }
+
+  Widget _buildMainMenu() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('主菜单', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        _buildSettingsCard('基本设置', Icons.settings, '/settings'),
+        const SizedBox(height: 12),
+        _buildSettingsCard('录音记录', Icons.mic, '/recordings'),
+      ],
+    );
+  }
+
+  Widget _buildSettingsCard(String title, IconData icon, String route) {
+    return Card(
+      elevation: 2,
+      child: ListTile(
+        leading: Icon(icon, size: 32),
+        title: Text(title, style: const TextStyle(fontSize: 18)),
+        trailing: const Icon(Icons.arrow_forward),
+        onTap: () => Navigator.pushNamed(context, route),
       ),
     );
   }
@@ -76,21 +195,10 @@ class _HomePageState extends State<HomePage> {
 
     if (confirm == true) {
       await _dbHelper.deleteAllData();
-      _loadSettings();
+      _loadData();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('所有数据已成功清除')),
       );
     }
-  }
-
-  Widget _buildSettingsCard(String title, IconData icon, String route) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, size: 32),
-        title: Text(title, style: const TextStyle(fontSize: 20)),
-        trailing: const Icon(Icons.arrow_forward),
-        onTap: () => Navigator.pushNamed(context, route),
-      ),
-    );
   }
 }

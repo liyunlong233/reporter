@@ -3,7 +3,6 @@ import 'package:reporter/database/database_helper.dart';
 import 'package:reporter/home_page.dart';
 import 'package:reporter/screens/recordings_page.dart';
 import 'package:reporter/screens/settings_page.dart';
-import 'package:reporter/screens/tracks_page.dart';
 
 
 void main() {
@@ -35,7 +34,6 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const HomePage(),
         '/settings': (context) => const SettingsPage(),
-        '/tracks': (context) => const TracksPage(),
         '/recordings': (context) => const RecordingsPage(),
       },
     );
