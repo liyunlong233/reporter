@@ -1,4 +1,6 @@
 class RecordingEntry {
+  static const int maxTracks = 8;
+  
   final int? id;
   final String fileName;
   final String startTC;
@@ -37,8 +39,10 @@ class RecordingEntry {
     this.track8,
   });
 
+  List<String?> get tracks => [track1, track2, track3, track4, track5, track6, track7, track8];
+
   Map<String, dynamic> toMap() {
-    return {
+    final map = {
       'id': id,
       'fileName': fileName,
       'startTC': startTC,
@@ -48,18 +52,21 @@ class RecordingEntry {
       'isDiscarded': isDiscarded ? 1 : 0,
       'notes': notes,
       'createdAt': createdAt.toIso8601String(),
-      'track1': track1,
-      'track2': track2,
-      'track3': track3,
-      'track4': track4,
-      'track5': track5,
-      'track6': track6,
-      'track7': track7,
-      'track8': track8,
     };
+    
+    for (var i = 1; i <= maxTracks; i++) {
+      map['track$i'] = tracks[i - 1];
+    }
+    
+    return map;
   }
 
   factory RecordingEntry.fromMap(Map<String, dynamic> map) {
+    final tracks = List<String?>.generate(
+      maxTracks,
+      (i) => map['track${i + 1}'] as String?,
+    );
+
     return RecordingEntry(
       id: map['id'] as int?,
       fileName: map['fileName'] as String,
@@ -70,14 +77,14 @@ class RecordingEntry {
       isDiscarded: (map['isDiscarded'] as int) == 1,
       notes: map['notes'] as String,
       createdAt: DateTime.parse(map['createdAt'] as String),
-      track1: map['track1'] as String?,
-      track2: map['track2'] as String?,
-      track3: map['track3'] as String?,
-      track4: map['track4'] as String?,
-      track5: map['track5'] as String?,
-      track6: map['track6'] as String?,
-      track7: map['track7'] as String?,
-      track8: map['track8'] as String?,
+      track1: tracks[0],
+      track2: tracks[1],
+      track3: tracks[2],
+      track4: tracks[3],
+      track5: tracks[4],
+      track6: tracks[5],
+      track7: tracks[6],
+      track8: tracks[7],
     );
   }
 
@@ -91,14 +98,7 @@ class RecordingEntry {
     bool? isDiscarded,
     String? notes,
     DateTime? createdAt,
-    String? track1,
-    String? track2,
-    String? track3,
-    String? track4,
-    String? track5,
-    String? track6,
-    String? track7,
-    String? track8,
+    List<String?>? tracks,
   }) {
     return RecordingEntry(
       id: id ?? this.id,
@@ -110,14 +110,14 @@ class RecordingEntry {
       isDiscarded: isDiscarded ?? this.isDiscarded,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
-      track1: track1 ?? this.track1,
-      track2: track2 ?? this.track2,
-      track3: track3 ?? this.track3,
-      track4: track4 ?? this.track4,
-      track5: track5 ?? this.track5,
-      track6: track6 ?? this.track6,
-      track7: track7 ?? this.track7,
-      track8: track8 ?? this.track8,
+      track1: tracks?[0] ?? this.track1,
+      track2: tracks?[1] ?? this.track2,
+      track3: tracks?[2] ?? this.track3,
+      track4: tracks?[3] ?? this.track4,
+      track5: tracks?[4] ?? this.track5,
+      track6: tracks?[5] ?? this.track6,
+      track7: tracks?[6] ?? this.track7,
+      track8: tracks?[7] ?? this.track8,
     );
   }
 }

@@ -236,19 +236,29 @@ class _RecordingsPageState extends State<RecordingsPage> {
       appBar: AppBar(
         automaticallyImplyLeading: true,
         title: const Text('录音记录'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.picture_as_pdf),
-              onPressed: _generatePDF,
-              tooltip: '生成PDF报告',
-            ),
-            IconButton(
-              icon: const Icon(Icons.filter_list),
-              onPressed: _showFilterDialog,
-              tooltip: '筛选记录',
-            ),
-          ],
-        ),
+        actions: [
+          IconButton(
+            icon: Icon(_showDiscarded ? Icons.visibility : Icons.visibility_off),
+            onPressed: () {
+              setState(() {
+                _showDiscarded = !_showDiscarded;
+                _applyFilters();
+              });
+            },
+            tooltip: _showDiscarded ? '隐藏已删除' : '显示已删除',
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: _generatePDF,
+            tooltip: '生成PDF报告',
+          ),
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterDialog,
+            tooltip: '筛选记录',
+          ),
+        ],
+      ),
         body: Column(
           children: [
             _buildQuickInputCard(),
@@ -388,7 +398,30 @@ class _RecordingsPageState extends State<RecordingsPage> {
           child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: ExpansionTile(
-              title: Text('${entry.scene} - ${entry.take}'),
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text('${entry.scene} - ${entry.take}'),
+                  ),
+                  if (entry.isDiscarded)
+                    Container(
+                      margin: const EdgeInsets.only(left: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.red),
+                      ),
+                      child: const Text(
+                        '已删除',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
               subtitle: Text(entry.fileName),
               children: [
                 Padding(
@@ -400,21 +433,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
                       Text('场记板: ${entry.slate}'),
                       if (entry.notes.isNotEmpty) Text('备注: ${entry.notes}'),
                       const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          if (entry.track1?.isNotEmpty ?? false) _buildTrackChip(entry.track1),
-                          if (entry.track2?.isNotEmpty ?? false) _buildTrackChip(entry.track2),
-                          if (entry.track3?.isNotEmpty ?? false) _buildTrackChip(entry.track3),
-                          if (entry.track4?.isNotEmpty ?? false) _buildTrackChip(entry.track4),
-                          if (entry.track5?.isNotEmpty ?? false) _buildTrackChip(entry.track5),
-                          if (entry.track6?.isNotEmpty ?? false) _buildTrackChip(entry.track6),
-                          if (entry.track7?.isNotEmpty ?? false) _buildTrackChip(entry.track7),
-                          if (entry.track8?.isNotEmpty ?? false) _buildTrackChip(entry.track8),
-                        ],
-                      ),
-              const SizedBox(height: 16),
+                      _buildTrackChips(entry),
+                      const SizedBox(height: 16),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -452,16 +472,11 @@ class _RecordingsPageState extends State<RecordingsPage> {
       _takeController.text = entry.take;
       _slateController.text = entry.slate;
       _notesController.text = entry.notes;
-      _trackControllers[0].text = entry.track1 ?? '';
-      _trackControllers[1].text = entry.track2 ?? '';
-      _trackControllers[2].text = entry.track3 ?? '';
-      _trackControllers[3].text = entry.track4 ?? '';
-      _trackControllers[4].text = entry.track5 ?? '';
-      _trackControllers[5].text = entry.track6 ?? '';
-      _trackControllers[6].text = entry.track7 ?? '';
-      _trackControllers[7].text = entry.track8 ?? '';
+      
+      for (var i = 0; i < RecordingEntry.maxTracks; i++) {
+        _trackControllers[i].text = entry.tracks[i] ?? '';
+      }
     });
-    return;
   }
 
   Future<void> _showFilterDialog() async {
@@ -546,29 +561,48 @@ class _RecordingsPageState extends State<RecordingsPage> {
       
       // 更新文件名格式
       _updateFileNameFormat(_fileNameController.text);
-        
-        final entry = RecordingEntry(
-        fileName: _fileNameController.text,
+      
+      final tracks = _trackControllers.map((c) => c.text.isEmpty ? null : c.text).toList();
+      
+      if (_currentEntryId != null) {
+        // 如果是编辑现有条目，调用更新方法
+        final existingEntry = _entries.firstWhere((entry) => entry.id == _currentEntryId);
+        final updatedEntry = existingEntry.copyWith(
+          fileName: _fileNameController.text,
           startTC: _startTCController.text,
           scene: _sceneController.text,
           take: _takeController.text,
           slate: _slateController.text,
-        isDiscarded: false,
+          notes: _notesController.text,
+          tracks: tracks,
+        );
+        await _updateEntry(updatedEntry);
+      } else {
+        // 如果是新条目，创建新记录
+        final entry = RecordingEntry(
+          fileName: _fileNameController.text,
+          startTC: _startTCController.text,
+          scene: _sceneController.text,
+          take: _takeController.text,
+          slate: _slateController.text,
+          isDiscarded: false,
           notes: _notesController.text,
           createdAt: DateTime.now(),
-        track1: _trackControllers[0].text.isEmpty ? null : _trackControllers[0].text,
-        track2: _trackControllers[1].text.isEmpty ? null : _trackControllers[1].text,
-        track3: _trackControllers[2].text.isEmpty ? null : _trackControllers[2].text,
-        track4: _trackControllers[3].text.isEmpty ? null : _trackControllers[3].text,
-        track5: _trackControllers[4].text.isEmpty ? null : _trackControllers[4].text,
-        track6: _trackControllers[5].text.isEmpty ? null : _trackControllers[5].text,
-        track7: _trackControllers[6].text.isEmpty ? null : _trackControllers[6].text,
-        track8: _trackControllers[7].text.isEmpty ? null : _trackControllers[7].text,
-      );
+          track1: tracks[0],
+          track2: tracks[1],
+          track3: tracks[2],
+          track4: tracks[3],
+          track5: tracks[4],
+          track6: tracks[5],
+          track7: tracks[6],
+          track8: tracks[7],
+        );
 
-      await DatabaseHelper.instance.saveRecordingEntry(entry);
+        await DatabaseHelper.instance.saveRecordingEntry(entry);
+      }
+      
       await _loadExistingRecordings();
-        _clearForm();
+      _clearForm();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('记录已保存')),
       );
@@ -586,14 +620,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
         take: _takeController.text,
         slate: _slateController.text,
         notes: _notesController.text,
-        track1: _trackControllers[0].text.isEmpty ? null : _trackControllers[0].text,
-        track2: _trackControllers[1].text.isEmpty ? null : _trackControllers[1].text,
-        track3: _trackControllers[2].text.isEmpty ? null : _trackControllers[2].text,
-        track4: _trackControllers[3].text.isEmpty ? null : _trackControllers[3].text,
-        track5: _trackControllers[4].text.isEmpty ? null : _trackControllers[4].text,
-        track6: _trackControllers[5].text.isEmpty ? null : _trackControllers[5].text,
-        track7: _trackControllers[6].text.isEmpty ? null : _trackControllers[6].text,
-        track8: _trackControllers[7].text.isEmpty ? null : _trackControllers[7].text,
+        tracks: _trackControllers.map((c) => c.text.isEmpty ? null : c.text).toList(),
       );
 
       await _dbHelper.updateRecordingEntry(updatedEntry);
@@ -604,8 +631,17 @@ class _RecordingsPageState extends State<RecordingsPage> {
 
   Future<void> _deleteEntry(RecordingEntry entry) async {
     if (entry.id != null) {
-      await _dbHelper.deleteRecordingEntry(entry.id!);
-      await _loadExistingRecordings();
+      try {
+        await _dbHelper.deleteRecordingEntry(entry.id!);
+        await _loadExistingRecordings();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('记录已删除')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败: $e')),
+        );
+      }
     }
   }
 
@@ -663,7 +699,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
           ),
-          itemCount: 8,
+          itemCount: RecordingEntry.maxTracks,
           itemBuilder: (context, index) {
             return TextFormField(
               controller: _trackControllers[index],
@@ -678,6 +714,17 @@ class _RecordingsPageState extends State<RecordingsPage> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildTrackChips(RecordingEntry entry) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: entry.tracks
+          .where((track) => track != null && track.isNotEmpty)
+          .map((track) => _buildTrackChip(track))
+          .toList(),
     );
   }
 

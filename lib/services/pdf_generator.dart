@@ -18,7 +18,9 @@ class PdfGenerator {
   Future<void> generateRecordingReport() async {
     final chineseFont = await _loadChineseFont();
     final logoBytes = await _loadLogoImage();
-    final entries = await _dbHelper.getAllRecordingEntries();
+    final allEntries = await _dbHelper.getAllRecordingEntries();
+    // 过滤掉已删除的条目
+    final entries = allEntries.where((entry) => !entry.isDiscarded).toList();
     final appSettings = await _dbHelper.getAppSettings();
 
     final pdf = pw.Document(
@@ -215,14 +217,7 @@ class PdfGenerator {
       entry.take,
       entry.slate,
       entry.isDiscarded ? '废' : '过/保',
-      entry.track1 ?? '',
-      entry.track2 ?? '',
-      entry.track3 ?? '',
-      entry.track4 ?? '',
-      entry.track5 ?? '',
-      entry.track6 ?? '',
-      entry.track7 ?? '',
-      entry.track8 ?? '',
+      ...entry.tracks.map((track) => track ?? ''),
       entry.notes,
     ];
   }
