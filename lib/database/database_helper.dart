@@ -51,6 +51,11 @@ class DatabaseHelper {
       )
     ''');
 
+    await db.execute('CREATE INDEX idx_recording_entries_scene ON recording_entries(scene)');
+    await db.execute('CREATE INDEX idx_recording_entries_take ON recording_entries(take)');
+    await db.execute('CREATE INDEX idx_recording_entries_createdAt ON recording_entries(createdAt)');
+    await db.execute('CREATE INDEX idx_recording_entries_isDiscarded ON recording_entries(isDiscarded)');
+
     await db.execute('''
       CREATE TABLE app_settings(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -153,5 +158,80 @@ class DatabaseHelper {
     final db = await database;
     await db.delete('recording_entries');
     await db.delete('app_settings');
+  }
+
+  Future<List<RecordingEntry>> getRecordingEntries({
+    int page = 1,
+    int pageSize = 50,
+    String? searchQuery,
+    bool? isDiscarded,
+    String? sortBy,
+    bool ascending = true,
+  }) async {
+    final db = await database;
+    
+    String whereClause = '';
+    List<dynamic> whereArgs = [];
+    
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      whereClause = '(fileName LIKE ? OR scene LIKE ? OR take LIKE ? OR slate LIKE ? OR notes LIKE ?)';
+      final searchPattern = '%$searchQuery%';
+      whereArgs = List.filled(5, searchPattern);
+    }
+    
+    if (isDiscarded != null) {
+      if (whereClause.isNotEmpty) {
+        whereClause = '($whereClause) AND isDiscarded = ?';
+      } else {
+        whereClause = 'isDiscarded = ?';
+      }
+      whereArgs.add(isDiscarded ? 1 : 0);
+    }
+    
+    final offset = (page - 1) * pageSize;
+    final orderBy = sortBy != null ? '$sortBy ${ascending ? 'ASC' : 'DESC'}' : 'createdAt DESC';
+    
+    final List<Map<String, dynamic>> maps = await db.query(
+      'recording_entries',
+      where: whereClause.isEmpty ? null : whereClause,
+      whereArgs: whereArgs.isEmpty ? null : whereArgs,
+      orderBy: orderBy,
+      limit: pageSize,
+      offset: offset,
+    );
+    
+    return List.generate(maps.length, (i) => RecordingEntry.fromMap(maps[i]));
+  }
+
+  Future<int> getRecordingEntriesCount({
+    String? searchQuery,
+    bool? isDiscarded,
+  }) async {
+    final db = await database;
+    
+    String whereClause = '';
+    List<dynamic> whereArgs = [];
+    
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      whereClause = '(fileName LIKE ? OR scene LIKE ? OR take LIKE ? OR slate LIKE ? OR notes LIKE ?)';
+      final searchPattern = '%$searchQuery%';
+      whereArgs = List.filled(5, searchPattern);
+    }
+    
+    if (isDiscarded != null) {
+      if (whereClause.isNotEmpty) {
+        whereClause = '($whereClause) AND isDiscarded = ?';
+      } else {
+        whereClause = 'isDiscarded = ?';
+      }
+      whereArgs.add(isDiscarded ? 1 : 0);
+    }
+    
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM recording_entries ${whereClause.isEmpty ? '' : 'WHERE $whereClause'}',
+      whereArgs.isEmpty ? null : whereArgs,
+    );
+    
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 }

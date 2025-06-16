@@ -646,8 +646,55 @@ class _RecordingsPageState extends State<RecordingsPage> {
   }
 
   Future<void> _generatePDF() async {
-    final pdfGenerator = PdfGenerator(_dbHelper, context);
-    await pdfGenerator.generateRecordingReport();
+    final result = await showDialog<PdfConfig>(
+      context: context,
+      builder: (context) => PdfConfigDialog(),
+    );
+
+    if (result != null) {
+      final pdfGenerator = PdfGenerator(
+        _dbHelper,
+        context,
+        config: result,
+        onProgress: (progress) {
+          // 显示进度对话框
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('生成PDF'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('正在生成PDF报告...'),
+                  const SizedBox(height: 16),
+                  LinearProgressIndicator(value: progress),
+                  const SizedBox(height: 8),
+                  Text('${(progress * 100).toInt()}%'),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      try {
+        await pdfGenerator.generateRecordingReport();
+        if (context.mounted) {
+          Navigator.of(context).pop(); // 关闭进度对话框
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('PDF报告生成成功')),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          Navigator.of(context).pop(); // 关闭进度对话框
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('生成PDF时出错: $e')),
+          );
+        }
+      }
+    }
   }
 
   List<String> _getTrackHeaders() {
@@ -836,6 +883,125 @@ class _TrackSettingsDialogState extends State<TrackSettingsDialog> {
             );
           },
           child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
+
+class PdfConfigDialog extends StatefulWidget {
+  @override
+  _PdfConfigDialogState createState() => _PdfConfigDialogState();
+}
+
+class _PdfConfigDialogState extends State<PdfConfigDialog> {
+  bool _includeProjectInfo = true;
+  bool _includeTracks = true;
+  bool _includeNotes = true;
+  bool _includeDiscarded = false;
+  final List<String> _selectedTracks = [];
+  final _titleController = TextEditingController();
+  final _footerController = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _footerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('PDF报告设置'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CheckboxListTile(
+              title: const Text('包含项目信息'),
+              value: _includeProjectInfo,
+              onChanged: (value) => setState(() => _includeProjectInfo = value!),
+            ),
+            CheckboxListTile(
+              title: const Text('包含轨道信息'),
+              value: _includeTracks,
+              onChanged: (value) => setState(() => _includeTracks = value!),
+            ),
+            if (_includeTracks) ...[
+              const SizedBox(height: 8),
+              const Text('选择要包含的轨道：'),
+              Wrap(
+                spacing: 8,
+                children: List.generate(8, (index) {
+                  final trackName = '轨道${index + 1}';
+                  return FilterChip(
+                    label: Text(trackName),
+                    selected: _selectedTracks.contains(trackName),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedTracks.add(trackName);
+                        } else {
+                          _selectedTracks.remove(trackName);
+                        }
+                      });
+                    },
+                  );
+                }),
+              ),
+            ],
+            CheckboxListTile(
+              title: const Text('包含备注'),
+              value: _includeNotes,
+              onChanged: (value) => setState(() => _includeNotes = value!),
+            ),
+            CheckboxListTile(
+              title: const Text('包含已删除记录'),
+              value: _includeDiscarded,
+              onChanged: (value) => setState(() => _includeDiscarded = value!),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: '自定义标题',
+                hintText: '留空使用默认标题',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _footerController,
+              decoration: const InputDecoration(
+                labelText: '自定义页脚',
+                hintText: '留空使用默认页脚',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(
+              context,
+              PdfConfig(
+                includeProjectInfo: _includeProjectInfo,
+                includeTracks: _includeTracks,
+                includeNotes: _includeNotes,
+                includeDiscarded: _includeDiscarded,
+                selectedTracks: _selectedTracks,
+                customTitle: _titleController.text.isEmpty ? null : _titleController.text,
+                customFooter: _footerController.text.isEmpty ? null : _footerController.text,
+              ),
+            );
+          },
+          child: const Text('生成'),
         ),
       ],
     );
