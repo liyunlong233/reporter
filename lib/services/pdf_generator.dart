@@ -70,6 +70,9 @@ class PdfGenerator {
         }
       }
 
+      // 按文件名升序排序录音条目
+      allEntries.sort((a, b) => a.fileName.compareTo(b.fileName));
+
       final appSettings = await _dbHelper.getAppSettings();
 
       final pdf = pw.Document(

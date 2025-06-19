@@ -206,31 +206,44 @@ class _RecordingsPageState extends State<RecordingsPage> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        if (Platform.isIOS) {
-          await _saveCurrentInput();
-          return true;
+        // 判断是否有未保存的输入
+        bool hasInput = _fileNameController.text.isNotEmpty ||
+            _startTCController.text.isNotEmpty ||
+            _sceneController.text.isNotEmpty ||
+            _takeController.text.isNotEmpty ||
+            _slateController.text.isNotEmpty ||
+            _notesController.text.isNotEmpty ||
+            _trackControllers.any((c) => c.text.isNotEmpty);
+        if (hasInput) {
+          final shouldAbandon = await showDialog<String>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('退出界面'),
+              content: const Text('你有未保存的录音条目，确定要退出吗？'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, 'edit'),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, 'abandon'),
+                  child: const Text('放弃更改'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, 'save'),
+                  child: const Text('保存并退出'),
+                ),
+              ],
+            ),
+          );
+          if (shouldAbandon == 'abandon') return true;
+          if (shouldAbandon == 'save') {
+            await _addEntry();
+            return true;
+          }
+          return false;
         }
-        final shouldPop = await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('保存更改'),
-            content: const Text('是否要保存当前输入再退出？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  await _saveCurrentInput();
-                  Navigator.pop(context, true);
-                },
-                child: const Text('保存'),
-              ),
-            ],
-          ),
-        );
-        return shouldPop ?? false;
+        return true;
       },
       child: Scaffold(
       appBar: AppBar(
