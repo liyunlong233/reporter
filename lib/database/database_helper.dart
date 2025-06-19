@@ -145,7 +145,13 @@ class DatabaseHelper {
 
   Future<int> saveAppSettings(AppSettings settings) async {
     final db = await database;
-    return await db.insert('app_settings', settings.toMap());
+    final map = settings.toMap();
+    map['id'] = 1; // 保证唯一
+    return await db.insert(
+      'app_settings',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<AppSettings?> getAppSettings() async {

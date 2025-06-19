@@ -273,7 +273,7 @@ class PdfGenerator {
   }
 
   List<String> _getTableHeaders() {
-    final headers = ['文件名', 'StartTC', '场', '镜', '次', '标签'];
+    final headers = ['文件名', '文件创建时间', '场', '镜', '次', '标签'];
     
     if (config.includeTracks) {
       if (config.selectedTracks.isEmpty) {

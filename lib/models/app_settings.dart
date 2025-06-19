@@ -1,4 +1,5 @@
 class AppSettings {
+  int? id;
   String projectName;
   String productionCompany;
   String soundEngineer;
@@ -10,6 +11,7 @@ class AppSettings {
   String rollNumber;
 
   AppSettings({
+    this.id,
     required this.projectName,
     required this.productionCompany,
     required this.soundEngineer,
@@ -22,7 +24,7 @@ class AppSettings {
   });
 
   Map<String, dynamic> toMap() => {
-    
+    if (id != null) 'id': id,
     'projectName': projectName,
     'productionCompany': productionCompany,
     'soundEngineer': soundEngineer,
@@ -35,6 +37,7 @@ class AppSettings {
   };
 
   factory AppSettings.fromMap(Map<String, dynamic> map) => AppSettings(
+    id: map['id'] as int?,
     projectName: map['projectName'],
     productionCompany: map['productionCompany'],
     soundEngineer: map['soundEngineer'],

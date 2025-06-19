@@ -25,7 +25,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
   final List<RecordingEntry> _entries = [];
   int? _currentEntryId;
   final TextEditingController _fileNameController = TextEditingController();
-  final TextEditingController _startTCController = TextEditingController();
+  final TextEditingController _fileCreatedTimeController = TextEditingController();
   final TextEditingController _sceneController = TextEditingController();
   final TextEditingController _takeController = TextEditingController();
   final TextEditingController _slateController = TextEditingController();
@@ -52,7 +52,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
   @override
   void dispose() {
     _fileNameController.dispose();
-    _startTCController.dispose();
+    _fileCreatedTimeController.dispose();
     _sceneController.dispose();
     _takeController.dispose();
     _slateController.dispose();
@@ -84,7 +84,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
       final newEntry = await _dbHelper.saveRecordingEntry(
         RecordingEntry(
           fileName: _fileNameController.text,
-          startTC: _startTCController.text,
+          startTC: _fileCreatedTimeController.text,
           scene: _sceneController.text,
           take: _takeController.text,
           slate: _slateController.text,
@@ -109,10 +109,10 @@ class _RecordingsPageState extends State<RecordingsPage> {
     setState(() {
       _currentEntryId = null;
       _isDiscarded = false;
-      _startTCController.clear();
+      _fileCreatedTimeController.clear();
       _sceneController.clear();
       _takeController.clear();
-      _slateController.clear();
+      _slateController.text = '';
       _notesController.clear();
       
       // 自动填充递增的文件名
@@ -131,7 +131,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
     if (lastEntry != null) {
       _currentEntryId = lastEntry.id;
       _fileNameController.text = lastEntry.fileName;
-      _startTCController.text = lastEntry.startTC;
+      _fileCreatedTimeController.text = lastEntry.startTC;
       _sceneController.text = lastEntry.scene;
       _takeController.text = lastEntry.take;
       _slateController.text = lastEntry.slate;
@@ -208,7 +208,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
       onWillPop: () async {
         // 判断是否有未保存的输入
         bool hasInput = _fileNameController.text.isNotEmpty ||
-            _startTCController.text.isNotEmpty ||
+            _fileCreatedTimeController.text.isNotEmpty ||
             _sceneController.text.isNotEmpty ||
             _takeController.text.isNotEmpty ||
             _slateController.text.isNotEmpty ||
@@ -325,12 +325,12 @@ class _RecordingsPageState extends State<RecordingsPage> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildTextFormField('StartTC', _startTCController),
+                    child: _buildTextFormField('文件创建时间', _fileCreatedTimeController),
                   ),
                   IconButton(
                     icon: const Icon(Icons.access_time),
                     onPressed: _autoFillStartTC,
-                    tooltip: '自动填充时码',
+                    tooltip: '自动填充文件创建时间',
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -442,8 +442,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('时码: ${entry.startTC}'),
-                      Text('场记板: ${entry.slate}'),
+                      Text('文件创建时间: ${entry.startTC}'),
+                      Text('场: ${entry.scene}  镜: ${entry.take}  次:${entry.slate}'),
                       if (entry.notes.isNotEmpty) Text('备注: ${entry.notes}'),
                       const SizedBox(height: 8),
                       _buildTrackChips(entry),
@@ -480,7 +480,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
       _currentEntryId = entry.id;
       _isDiscarded = entry.isDiscarded;
       _fileNameController.text = entry.fileName;
-      _startTCController.text = entry.startTC;
+      _fileCreatedTimeController.text = entry.startTC;
       _sceneController.text = entry.scene;
       _takeController.text = entry.take;
       _slateController.text = entry.slate;
@@ -565,12 +565,17 @@ class _RecordingsPageState extends State<RecordingsPage> {
 
   Future<void> _autoFillStartTC() async {
       final now = DateTime.now();
-      _startTCController.text = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}:00';
+      _fileCreatedTimeController.text = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}:00';
   }
 
   Future<void> _addEntry() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
+      // 保存前记录当前场、镜、次、废弃状态
+      final prevScene = _sceneController.text;
+      final prevTake = _takeController.text;
+      final prevSlate = _slateController.text;
+      final prevDiscarded = _isDiscarded;
       
       // 更新文件名格式
       _updateFileNameFormat(_fileNameController.text);
@@ -582,7 +587,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
         final existingEntry = _entries.firstWhere((entry) => entry.id == _currentEntryId);
         final updatedEntry = existingEntry.copyWith(
           fileName: _fileNameController.text,
-          startTC: _startTCController.text,
+          startTC: _fileCreatedTimeController.text,
           scene: _sceneController.text,
           take: _takeController.text,
           slate: _slateController.text,
@@ -594,7 +599,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
         // 如果是新条目，创建新记录
         final entry = RecordingEntry(
           fileName: _fileNameController.text,
-          startTC: _startTCController.text,
+          startTC: _fileCreatedTimeController.text,
           scene: _sceneController.text,
           take: _takeController.text,
           slate: _slateController.text,
@@ -615,10 +620,36 @@ class _RecordingsPageState extends State<RecordingsPage> {
       }
       
       await _loadExistingRecordings();
-      _clearForm();
+      // 自动填充下条录音条目的场/镜/次
+      setState(() {
+        _sceneController.text = prevScene;
+        if (!prevDiscarded) {
+          // 未废弃：场不变，镜/次清空
+          _takeController.clear();
+          _slateController.clear();
+        } else {
+          // 废弃：场/镜不变，次+1
+          _takeController.text = prevTake;
+          int nextSlate = int.tryParse(prevSlate) != null ? int.parse(prevSlate) + 1 : 1;
+          _slateController.text = nextSlate.toString();
+        }
+      });
+      _clearFormExceptSceneTakeSlate();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('记录已保存')),
       );
+    }
+  }
+
+  // 只清空除场/镜/次以外的表单内容
+  void _clearFormExceptSceneTakeSlate() {
+    _currentEntryId = null;
+    _isDiscarded = false;
+    _fileCreatedTimeController.clear();
+    _fileNameController.text = _generateNextFileName();
+    _notesController.clear();
+    for (var i = 0; i < 8; i++) {
+      _trackControllers[i].text = _lastTrackNames[i];
     }
   }
 
@@ -628,7 +659,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
       
       final updatedEntry = entry.copyWith(
         fileName: _fileNameController.text,
-        startTC: _startTCController.text,
+        startTC: _fileCreatedTimeController.text,
         scene: _sceneController.text,
         take: _takeController.text,
         slate: _slateController.text,
@@ -638,7 +669,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
 
       await _dbHelper.updateRecordingEntry(updatedEntry);
       await _loadExistingRecordings();
-        _clearForm();
+        _clearFormExceptSceneTakeSlate();
       }
   }
 

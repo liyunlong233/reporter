@@ -15,23 +15,38 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
+    _clearAllFields();
     _loadSettings();
   }
 
   final _dbHelper = DatabaseHelper.instance;
 
+  void _clearAllFields() {
+    _projectNameController.clear();
+    _companyController.clear();
+    _engineerController.clear();
+    _boomOperatorController.clear();
+    _equipmentController.clear();
+    _formatController.clear();
+    _frameRateController.clear();
+    _rollNumberController.clear();
+    _selectedDate = DateTime.now();
+  }
+
   Future<void> _loadSettings() async {
     final settings = await _dbHelper.getAppSettings();
     if (settings != null) {
-      _projectNameController.text = settings.projectName;
-      _companyController.text = settings.productionCompany;
-      _engineerController.text = settings.soundEngineer;
-      _boomOperatorController.text = settings.boomOperator;
-      _equipmentController.text = settings.equipmentModel;
-      _formatController.text = settings.fileFormat;
-      _frameRateController.text = settings.frameRate.toString();
-      _rollNumberController.text = settings.rollNumber;
-      _selectedDate = settings.projectDate;
+      setState(() {
+        _projectNameController.text = settings.projectName;
+        _companyController.text = settings.productionCompany;
+        _engineerController.text = settings.soundEngineer;
+        _boomOperatorController.text = settings.boomOperator;
+        _equipmentController.text = settings.equipmentModel;
+        _formatController.text = settings.fileFormat;
+        _frameRateController.text = settings.frameRate.toString();
+        _rollNumberController.text = settings.rollNumber;
+        _selectedDate = settings.projectDate;
+      });
     }
   }
 
