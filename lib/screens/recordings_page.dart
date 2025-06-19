@@ -34,8 +34,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
   List<RecordingEntry> _filteredEntries = [];
   bool _showDiscarded = true;
   String _searchText = '';
-  List<TextEditingController> _trackControllers = List.generate(8, (index) => TextEditingController());
-  List<String> _lastTrackNames = List.generate(8, (index) => '');
+  final List<TextEditingController> _trackControllers = List.generate(8, (index) => TextEditingController());
+  final List<String> _lastTrackNames = List.generate(8, (index) => '');
   String _lastFileNamePrefix = 'REC_';
   int _lastFileNameNumber = 0;
   int _lastFileNameDigits = 3;
@@ -282,8 +282,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: _clearForm,
-          child: const Icon(Icons.add),
           tooltip: '新建记录',
+          child: const Icon(Icons.add),
         ),
       ),
     );
@@ -934,6 +934,8 @@ class _TrackSettingsDialogState extends State<TrackSettingsDialog> {
 }
 
 class PdfConfigDialog extends StatefulWidget {
+  const PdfConfigDialog({super.key});
+
   @override
   _PdfConfigDialogState createState() => _PdfConfigDialogState();
 }

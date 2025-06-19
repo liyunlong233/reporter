@@ -67,16 +67,16 @@ class _HomePageState extends State<HomePage> {
           FloatingActionButton(
             heroTag: 'newRecording',
             onPressed: () => Navigator.pushNamed(context, '/recordings'),
-            child: const Icon(Icons.add),
             tooltip: '新建录音记录',
+            child: const Icon(Icons.add),
           ),
           const SizedBox(height: 16),
           FloatingActionButton(
             heroTag: 'clearData',
             backgroundColor: Colors.red,
             onPressed: _confirmClearAllData,
-            child: const Icon(Icons.delete_forever),
             tooltip: '清空所有数据',
+            child: const Icon(Icons.delete_forever),
           ),
         ],
       ),

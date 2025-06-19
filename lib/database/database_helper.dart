@@ -1,7 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/app_settings.dart';
-import '../models/track_config.dart';
 import '../models/recording_entry.dart';
 
 class DatabaseHelper {

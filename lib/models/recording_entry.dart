@@ -110,14 +110,14 @@ class RecordingEntry {
       isDiscarded: isDiscarded ?? this.isDiscarded,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
-      track1: tracks?[0] ?? this.track1,
-      track2: tracks?[1] ?? this.track2,
-      track3: tracks?[2] ?? this.track3,
-      track4: tracks?[3] ?? this.track4,
-      track5: tracks?[4] ?? this.track5,
-      track6: tracks?[5] ?? this.track6,
-      track7: tracks?[6] ?? this.track7,
-      track8: tracks?[7] ?? this.track8,
+      track1: tracks?[0] ?? track1,
+      track2: tracks?[1] ?? track2,
+      track3: tracks?[2] ?? track3,
+      track4: tracks?[3] ?? track4,
+      track5: tracks?[4] ?? track5,
+      track6: tracks?[5] ?? track6,
+      track7: tracks?[6] ?? track7,
+      track8: tracks?[7] ?? track8,
     );
   }
 }

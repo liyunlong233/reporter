@@ -110,7 +110,7 @@ class PdfGenerator {
     final pages = <pw.Widget>[];
     var currentStart = 0;
 
-    pw.Widget _buildFirstPage(List<RecordingEntry> entries, AppSettings? appSettings,
+    pw.Widget buildFirstPage(List<RecordingEntry> entries, AppSettings? appSettings,
         Uint8List logoBytes, pw.Font chineseFont) {
       return pw.Stack(
         children: [
@@ -152,7 +152,7 @@ class PdfGenerator {
     if (entries.isNotEmpty) {
       final firstPageEnd = firstPageMaxEntries.clamp(0, entries.length);
       final firstPageEntries = entries.sublist(0, firstPageEnd);
-      pages.add(_buildFirstPage(firstPageEntries, appSettings, logoBytes, chineseFont));
+      pages.add(buildFirstPage(firstPageEntries, appSettings, logoBytes, chineseFont));
       currentStart = firstPageEnd;
     }
 

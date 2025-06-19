@@ -101,7 +101,7 @@ class _GlobalSettingsPageState extends State<GlobalSettingsPage> {
             Expanded(
               child: TextField(
                 controller: controller,
-                decoration: InputDecoration(hintText: '添加新${label}'),
+                decoration: InputDecoration(hintText: '添加新$label'),
               ),
             ),
             IconButton(
