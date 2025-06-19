@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:reporter/database/database_helper.dart';
 import 'package:reporter/models/app_settings.dart';
+import 'package:provider/provider.dart';
+import '../global/app_state.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -61,6 +63,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
     return WillPopScope(
       onWillPop: () async {
         await _saveCurrentInput();
@@ -81,8 +84,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 _buildTextFormField('制作公司', _companyController),
                 _buildTextFormField('录音师', _engineerController),
                 _buildTextFormField('话筒员', _boomOperatorController),
-                _buildTextFormField('设备型号', _equipmentController),
-                _buildTextFormField('文件格式', _formatController),
+                _buildTextFormField('设备型号', _equipmentController, options: appState.deviceModels),
+                _buildTextFormField('文件格式', _formatController, options: appState.fileFormats),
                 _buildTextFormField('项目帧率', _frameRateController),
                 _buildDatePicker(),
                 _buildTextFormField('卷号', _rollNumberController),
@@ -99,7 +102,21 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildTextFormField(String label, TextEditingController controller, {bool isRequired = false}) {
+  Widget _buildTextFormField(String label, TextEditingController controller, {bool isRequired = false, List<String>? options}) {
+    if (options != null && options.isNotEmpty) {
+      return DropdownButtonFormField<String>(
+        value: controller.text.isNotEmpty ? controller.text : null,
+        decoration: InputDecoration(labelText: label),
+        items: options.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+        onChanged: (value) {
+          controller.text = value ?? '';
+        },
+        onSaved: (value) {
+          controller.text = value ?? '';
+        },
+        selectedItemBuilder: (context) => options.map((e) => Text(e)).toList(),
+      );
+    }
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(labelText: label),

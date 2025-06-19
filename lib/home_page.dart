@@ -158,6 +158,8 @@ class _HomePageState extends State<HomePage> {
         _buildSettingsCard('基本设置', Icons.settings, '/settings'),
         const SizedBox(height: 12),
         _buildSettingsCard('录音记录', Icons.mic, '/recordings'),
+        const SizedBox(height: 12),
+        _buildSettingsCard('全局设置', Icons.tune, '/global_settings'),
       ],
     );
   }
