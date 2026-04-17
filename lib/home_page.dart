@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:reporter/database/database_helper.dart';
-import 'package:reporter/models/app_settings.dart';
+import 'package:reporter/data/repositories/local_preferences_repository.dart';
+import 'package:reporter/repositories/recording_repository.dart';
+import 'package:reporter/repositories/settings_repository.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final RecordingRepository recordingRepository;
+  final SettingsRepository settingsRepository;
+  final LocalPreferencesRepository preferencesRepository;
+
+  const HomePage({
+    super.key,
+    required this.recordingRepository,
+    required this.settingsRepository,
+    required this.preferencesRepository,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final _dbHelper = DatabaseHelper.instance;
-  AppSettings? _appSettings;
   int _totalRecordings = 0;
   int _activeRecordings = 0;
 
@@ -22,10 +30,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadData() async {
-    final settings = await _dbHelper.getAppSettings();
-    final recordings = await _dbHelper.getAllRecordingEntries();
+    final recordings = await widget.recordingRepository.getAllRecordings();
     setState(() {
-      _appSettings = settings;
       _totalRecordings = recordings.length;
       _activeRecordings = recordings.where((r) => !r.isDiscarded).length;
     });
@@ -67,16 +73,16 @@ class _HomePageState extends State<HomePage> {
           FloatingActionButton(
             heroTag: 'newRecording',
             onPressed: () => Navigator.pushNamed(context, '/recordings'),
-            child: const Icon(Icons.add),
             tooltip: '新建录音记录',
+            child: const Icon(Icons.add),
           ),
           const SizedBox(height: 16),
           FloatingActionButton(
             heroTag: 'clearData',
             backgroundColor: Colors.red,
             onPressed: _confirmClearAllData,
-            child: const Icon(Icons.delete_forever),
             tooltip: '清空所有数据',
+            child: const Icon(Icons.delete_forever),
           ),
         ],
       ),
@@ -132,7 +138,8 @@ class _HomePageState extends State<HomePage> {
               children: [
                 _buildActionChip('新建录音', Icons.add, () => Navigator.pushNamed(context, '/recordings')),
                 _buildActionChip('生成报告', Icons.picture_as_pdf, () => Navigator.pushNamed(context, '/recordings')),
-                _buildActionChip('基本设置', Icons.settings, () => Navigator.pushNamed(context, '/settings')),
+                _buildActionChip('项目设置', Icons.settings, () => Navigator.pushNamed(context, '/settings')),
+                _buildActionChip('基本设置', Icons.tune, () => Navigator.pushNamed(context, '/basic-settings')),
               ],
             ),
           ],
@@ -155,7 +162,9 @@ class _HomePageState extends State<HomePage> {
       children: [
         const Text('主菜单', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
-        _buildSettingsCard('基本设置', Icons.settings, '/settings'),
+        _buildSettingsCard('项目设置', Icons.settings, '/settings'),
+        const SizedBox(height: 12),
+        _buildSettingsCard('基本设置', Icons.tune, '/basic-settings'),
         const SizedBox(height: 12),
         _buildSettingsCard('录音记录', Icons.mic, '/recordings'),
       ],
@@ -194,7 +203,8 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (confirm == true) {
-      await _dbHelper.deleteAllData();
+      await widget.recordingRepository.deleteAllRecordings();
+      await widget.settingsRepository.deleteSettings();
       _loadData();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('所有数据已成功清除')),

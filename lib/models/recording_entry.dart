@@ -1,5 +1,5 @@
 class RecordingEntry {
-  static const int maxTracks = 8;
+  static const int maxTracks = 24;
   
   final int? id;
   final String fileName;
@@ -10,14 +10,8 @@ class RecordingEntry {
   final bool isDiscarded;
   final String notes;
   final DateTime createdAt;
-  final String? track1;
-  final String? track2;
-  final String? track3;
-  final String? track4;
-  final String? track5;
-  final String? track6;
-  final String? track7;
-  final String? track8;
+  final List<String?> _tracks;
+  final List<bool> _trackChecked;
 
   RecordingEntry({
     this.id,
@@ -29,17 +23,55 @@ class RecordingEntry {
     required this.isDiscarded,
     required this.notes,
     required this.createdAt,
-    this.track1,
-    this.track2,
-    this.track3,
-    this.track4,
-    this.track5,
-    this.track6,
-    this.track7,
-    this.track8,
-  });
+    String? track1,
+    String? track2,
+    String? track3,
+    String? track4,
+    String? track5,
+    String? track6,
+    String? track7,
+    String? track8,
+    String? track9,
+    String? track10,
+    String? track11,
+    String? track12,
+    String? track13,
+    String? track14,
+    String? track15,
+    String? track16,
+    String? track17,
+    String? track18,
+    String? track19,
+    String? track20,
+    String? track21,
+    String? track22,
+    String? track23,
+    String? track24,
+    List<bool>? trackChecked,
+  }) : _tracks = [track1, track2, track3, track4, track5, track6, track7, track8, track9, track10, track11, track12, track13, track14, track15, track16, track17, track18, track19, track20, track21, track22, track23, track24],
+       _trackChecked = trackChecked ?? List.filled(maxTracks, false);
 
-  List<String?> get tracks => [track1, track2, track3, track4, track5, track6, track7, track8];
+  RecordingEntry.withTracks({
+    this.id,
+    required this.fileName,
+    required this.startTC,
+    required this.scene,
+    required this.take,
+    required this.slate,
+    required this.isDiscarded,
+    required this.notes,
+    required this.createdAt,
+    List<String?>? tracks,
+    List<bool>? trackChecked,
+  }) : _tracks = tracks != null 
+           ? [...tracks, ...List.filled(maxTracks - tracks.length, null)].take(maxTracks).toList()
+           : List.filled(maxTracks, null),
+       _trackChecked = trackChecked != null 
+           ? [...trackChecked, ...List.filled(maxTracks - trackChecked.length, false)].take(maxTracks).toList()
+           : List.filled(maxTracks, false);
+
+  List<String?> get tracks => List.unmodifiable(_tracks);
+  List<bool> get trackChecked => List.unmodifiable(_trackChecked);
 
   Map<String, dynamic> toMap() {
     final map = {
@@ -58,6 +90,10 @@ class RecordingEntry {
       map['track$i'] = tracks[i - 1];
     }
     
+    for (var i = 1; i <= maxTracks; i++) {
+      map['track${i}_checked'] = trackChecked[i - 1] ? 1 : 0;
+    }
+    
     return map;
   }
 
@@ -67,7 +103,12 @@ class RecordingEntry {
       (i) => map['track${i + 1}'] as String?,
     );
 
-    return RecordingEntry(
+    final trackChecked = List<bool>.generate(
+      maxTracks,
+      (i) => (map['track${i + 1}_checked'] as int?) == 1,
+    );
+
+    return RecordingEntry.withTracks(
       id: map['id'] as int?,
       fileName: map['fileName'] as String,
       startTC: map['startTC'] as String,
@@ -77,14 +118,8 @@ class RecordingEntry {
       isDiscarded: (map['isDiscarded'] as int) == 1,
       notes: map['notes'] as String,
       createdAt: DateTime.parse(map['createdAt'] as String),
-      track1: tracks[0],
-      track2: tracks[1],
-      track3: tracks[2],
-      track4: tracks[3],
-      track5: tracks[4],
-      track6: tracks[5],
-      track7: tracks[6],
-      track8: tracks[7],
+      tracks: tracks,
+      trackChecked: trackChecked,
     );
   }
 
@@ -99,8 +134,11 @@ class RecordingEntry {
     String? notes,
     DateTime? createdAt,
     List<String?>? tracks,
+    List<bool>? trackChecked,
   }) {
-    return RecordingEntry(
+    final newTracks = tracks ?? List<String?>.from(_tracks);
+    final newTrackChecked = trackChecked ?? List<bool>.from(_trackChecked);
+    return RecordingEntry.withTracks(
       id: id ?? this.id,
       fileName: fileName ?? this.fileName,
       startTC: startTC ?? this.startTC,
@@ -110,14 +148,8 @@ class RecordingEntry {
       isDiscarded: isDiscarded ?? this.isDiscarded,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
-      track1: tracks?[0] ?? this.track1,
-      track2: tracks?[1] ?? this.track2,
-      track3: tracks?[2] ?? this.track3,
-      track4: tracks?[3] ?? this.track4,
-      track5: tracks?[4] ?? this.track5,
-      track6: tracks?[5] ?? this.track6,
-      track7: tracks?[6] ?? this.track7,
-      track8: tracks?[7] ?? this.track8,
+      tracks: newTracks,
+      trackChecked: newTrackChecked,
     );
   }
 }

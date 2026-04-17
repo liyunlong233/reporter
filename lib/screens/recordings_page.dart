@@ -1,26 +1,30 @@
-import 'dart:convert' as PdfEncoding;
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
-import 'package:reporter/database/database_helper.dart';
+import 'package:reporter/data/repositories/local_preferences_repository.dart';
 import 'package:reporter/models/recording_entry.dart';
-import 'package:reporter/models/track_config.dart';
+import 'package:reporter/repositories/recording_repository.dart';
+import 'package:reporter/repositories/settings_repository.dart';
 import 'package:reporter/services/pdf_generator.dart';
+import 'package:reporter/validators/validators.dart';
 
 class RecordingsPage extends StatefulWidget {
-  const RecordingsPage({super.key});
+  final RecordingRepository recordingRepository;
+  final SettingsRepository settingsRepository;
+  final LocalPreferencesRepository preferencesRepository;
+
+  const RecordingsPage({
+    super.key,
+    required this.recordingRepository,
+    required this.settingsRepository,
+    required this.preferencesRepository,
+  });
 
   @override
   State<RecordingsPage> createState() => _RecordingsPageState();
 }
 
 class _RecordingsPageState extends State<RecordingsPage> {
-  final _dbHelper = DatabaseHelper.instance;
   final _formKey = GlobalKey<FormState>();
   final List<RecordingEntry> _entries = [];
   int? _currentEntryId;
@@ -34,8 +38,12 @@ class _RecordingsPageState extends State<RecordingsPage> {
   List<RecordingEntry> _filteredEntries = [];
   bool _showDiscarded = true;
   String _searchText = '';
-  List<TextEditingController> _trackControllers = List.generate(8, (index) => TextEditingController());
-  List<String> _lastTrackNames = List.generate(8, (index) => '');
+  final List<TextEditingController> _trackControllers = List.generate(24, (index) => TextEditingController());
+  final List<String> _lastTrackNames = List.generate(24, (index) => '');
+  final List<bool> _trackCheckedStates = List.generate(24, (index) => false);
+  final List<bool> _lastTrackCheckedStates = List.generate(24, (index) => false);
+  final List<String> _originalTrackNames = List.generate(24, (index) => '');
+  int _channelCount = 8;
   String _lastFileNamePrefix = 'REC_';
   int _lastFileNameNumber = 0;
   int _lastFileNameDigits = 3;
@@ -70,19 +78,22 @@ class _RecordingsPageState extends State<RecordingsPage> {
   }
 
   void _updateFileNameFormat(String fileName) {
-    // 匹配文件名中的前缀和数字部分
-    final match = RegExp(r'^(.+?)(\d+)$').firstMatch(fileName);
-    if (match != null) {
-      _lastFileNamePrefix = match.group(1)!;
-      _lastFileNameNumber = int.parse(match.group(2)!);
-      _lastFileNameDigits = match.group(2)!.length;
+    final parsed = FileNameValidator.parseFileName(fileName);
+    if (parsed != null) {
+      _lastFileNamePrefix = parsed['prefix'] as String;
+      _lastFileNameNumber = parsed['number'] as int;
+      _lastFileNameDigits = parsed['digits'] as int;
     }
   }
 
   Future<void> _saveCurrentInput() async {
     if (_currentEntryId == null && !_isDiscarded) {
-      final newEntry = await _dbHelper.saveRecordingEntry(
-        RecordingEntry(
+      final tracks = List<String?>.generate(
+        _channelCount,
+        (i) => _trackControllers[i].text.isEmpty ? null : _trackControllers[i].text,
+      );
+      final newEntry = await widget.recordingRepository.saveRecording(
+        RecordingEntry.withTracks(
           fileName: _fileNameController.text,
           startTC: _startTCController.text,
           scene: _sceneController.text,
@@ -91,14 +102,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
           notes: _notesController.text,
           isDiscarded: _isDiscarded,
           createdAt: DateTime.now(),
-          track1: _trackControllers[0].text.isEmpty ? null : _trackControllers[0].text,
-          track2: _trackControllers[1].text.isEmpty ? null : _trackControllers[1].text,
-          track3: _trackControllers[2].text.isEmpty ? null : _trackControllers[2].text,
-          track4: _trackControllers[3].text.isEmpty ? null : _trackControllers[3].text,
-          track5: _trackControllers[4].text.isEmpty ? null : _trackControllers[4].text,
-          track6: _trackControllers[5].text.isEmpty ? null : _trackControllers[5].text,
-          track7: _trackControllers[6].text.isEmpty ? null : _trackControllers[6].text,
-          track8: _trackControllers[7].text.isEmpty ? null : _trackControllers[7].text,
+          tracks: tracks,
+          trackChecked: List.from(_trackCheckedStates),
         ),
       );
       setState(() => _currentEntryId = newEntry);
@@ -106,28 +111,68 @@ class _RecordingsPageState extends State<RecordingsPage> {
   }
 
   Future<void> _clearForm() async {
+    final settings = await widget.settingsRepository.getSettings();
+    if (settings != null) {
+      _channelCount = settings.channelCount;
+    }
+    
+    final lastEntry = await widget.recordingRepository.getLatestRecording();
+    
     setState(() {
       _currentEntryId = null;
       _isDiscarded = false;
       _startTCController.clear();
-      _sceneController.clear();
-      _takeController.clear();
-      _slateController.clear();
       _notesController.clear();
       
-      // 自动填充递增的文件名
       _fileNameController.text = _generateNextFileName();
       
-      // 自动填充上次的轨道名称
-      for (var i = 0; i < 8; i++) {
-        _trackControllers[i].text = _lastTrackNames[i];
+      if (lastEntry != null) {
+        _sceneController.text = lastEntry.scene;
+        _slateController.text = lastEntry.slate;
+        
+        if (lastEntry.isDiscarded) {
+          _takeController.text = _incrementTake(lastEntry.take);
+        } else {
+          _takeController.clear();
+        }
+        
+        for (var i = 0; i < _channelCount; i++) {
+          _trackControllers[i].text = lastEntry.tracks[i] ?? _lastTrackNames[i];
+          _trackCheckedStates[i] = lastEntry.trackChecked[i];
+          _lastTrackNames[i] = _trackControllers[i].text;
+          _lastTrackCheckedStates[i] = _trackCheckedStates[i];
+          _originalTrackNames[i] = _trackControllers[i].text;
+        }
+      } else {
+        _takeController.clear();
+        for (var i = 0; i < _channelCount; i++) {
+          _trackControllers[i].text = _lastTrackNames[i];
+          _trackCheckedStates[i] = _lastTrackCheckedStates[i];
+          _originalTrackNames[i] = _lastTrackNames[i];
+        }
       }
     });
     await _loadExistingRecordings();
   }
 
+  String _incrementTake(String take) {
+    final regex = RegExp(r'^(\d+)(.*)$');
+    final match = regex.firstMatch(take);
+    if (match != null) {
+      final numberPart = int.parse(match.group(1)!);
+      final suffixPart = match.group(2)!;
+      return '${numberPart + 1}$suffixPart';
+    }
+    return '1';
+  }
+
   Future<void> _loadLastInputValues() async {
-    final lastEntry = await _dbHelper.getLatestRecordingEntry();
+    final settings = await widget.settingsRepository.getSettings();
+    if (settings != null) {
+      _channelCount = settings.channelCount;
+    }
+    
+    final lastEntry = await widget.recordingRepository.getLatestRecording();
     if (lastEntry != null) {
       _currentEntryId = lastEntry.id;
       _fileNameController.text = lastEntry.fileName;
@@ -138,38 +183,32 @@ class _RecordingsPageState extends State<RecordingsPage> {
       _notesController.text = lastEntry.notes;
       _isDiscarded = lastEntry.isDiscarded;
       
-      // 更新文件名格式
       _updateFileNameFormat(lastEntry.fileName);
       
-      // 使用上次的轨道名称
-      _trackControllers[0].text = lastEntry.track1 ?? _lastTrackNames[0];
-      _trackControllers[1].text = lastEntry.track2 ?? _lastTrackNames[1];
-      _trackControllers[2].text = lastEntry.track3 ?? _lastTrackNames[2];
-      _trackControllers[3].text = lastEntry.track4 ?? _lastTrackNames[3];
-      _trackControllers[4].text = lastEntry.track5 ?? _lastTrackNames[4];
-      _trackControllers[5].text = lastEntry.track6 ?? _lastTrackNames[5];
-      _trackControllers[6].text = lastEntry.track7 ?? _lastTrackNames[6];
-      _trackControllers[7].text = lastEntry.track8 ?? _lastTrackNames[7];
-
-      // 保存轨道名称以供下次使用
-      for (var i = 0; i < 8; i++) {
+      for (var i = 0; i < _channelCount; i++) {
+        _trackControllers[i].text = lastEntry.tracks[i] ?? _lastTrackNames[i];
         _lastTrackNames[i] = _trackControllers[i].text;
+        _trackCheckedStates[i] = lastEntry.trackChecked[i];
+        _lastTrackCheckedStates[i] = lastEntry.trackChecked[i];
+        _originalTrackNames[i] = lastEntry.tracks[i] ?? '';
       }
     } else {
-      // 如果没有之前的记录，初始化文件名和轨道名称
       _lastFileNamePrefix = 'REC_';
       _lastFileNameNumber = 0;
       _lastFileNameDigits = 3;
       _fileNameController.text = 'REC_001';
-      for (var i = 0; i < 8; i++) {
+      for (var i = 0; i < _channelCount; i++) {
         _trackControllers[i].text = '';
         _lastTrackNames[i] = '';
+        _trackCheckedStates[i] = false;
+        _lastTrackCheckedStates[i] = false;
+        _originalTrackNames[i] = '';
       }
     }
   }
 
   Future<void> _loadExistingRecordings() async {
-    final entries = await _dbHelper.getAllRecordingEntries();
+    final entries = await widget.recordingRepository.getAllRecordings();
     setState(() {
       _entries.clear();
       _entries.addAll(entries);
@@ -221,11 +260,17 @@ class _RecordingsPageState extends State<RecordingsPage> {
                 child: const Text('取消'),
               ),
               TextButton(
+                onPressed: () {
+                  Navigator.pop(context, true);
+                },
+                child: const Text('返回但不保存'),
+              ),
+              TextButton(
                 onPressed: () async {
                   await _saveCurrentInput();
                   Navigator.pop(context, true);
                 },
-                child: const Text('保存'),
+                child: const Text('保存并返回'),
               ),
             ],
           ),
@@ -269,8 +314,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: _clearForm,
-          child: const Icon(Icons.add),
           tooltip: '新建记录',
+          child: const Icon(Icons.add),
         ),
       ),
     );
@@ -300,11 +345,11 @@ class _RecordingsPageState extends State<RecordingsPage> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildTextFormField('镜', _takeController),
+                    child: _buildTextFormField('镜', _slateController),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildTextFormField('次', _slateController),
+                    child: _buildTextFormField('次', _takeController),
                   ),
                 ],
               ),
@@ -327,6 +372,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
               ),
               const SizedBox(height: 8),
               _buildTextFormField('备注', _notesController),
+              const SizedBox(height: 8),
+              _buildTrackCheckboxes(),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -397,26 +444,36 @@ class _RecordingsPageState extends State<RecordingsPage> {
           },
           child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: entry.isDiscarded ? Colors.red.withOpacity(0.08) : null,
             child: ExpansionTile(
               title: Row(
                 children: [
                   Expanded(
-                    child: Text('${entry.scene} - ${entry.take}'),
+                    child: Text(
+                      '${entry.scene} - ${entry.take}',
+                      style: entry.isDiscarded
+                          ? const TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.lineThrough,
+                            )
+                          : null,
+                    ),
                   ),
                   if (entry.isDiscarded)
                     Container(
                       margin: const EdgeInsets.only(left: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
+                        color: Colors.red,
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.red),
                       ),
                       child: const Text(
-                        '已删除',
+                        '废弃',
                         style: TextStyle(
-                          color: Colors.red,
+                          color: Colors.white,
                           fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -475,6 +532,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
       
       for (var i = 0; i < RecordingEntry.maxTracks; i++) {
         _trackControllers[i].text = entry.tracks[i] ?? '';
+        _trackCheckedStates[i] = entry.trackChecked[i];
+        _originalTrackNames[i] = entry.tracks[i] ?? '';
       }
     });
   }
@@ -550,22 +609,22 @@ class _RecordingsPageState extends State<RecordingsPage> {
     );
   }
 
-  Future<void> _autoFillStartTC() async {
-      final now = DateTime.now();
-      _startTCController.text = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}:00';
+  void _autoFillStartTC() {
+    _startTCController.text = TimeCodeValidator.generateCurrentTimeCode();
   }
 
   Future<void> _addEntry() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       
-      // 更新文件名格式
       _updateFileNameFormat(_fileNameController.text);
       
-      final tracks = _trackControllers.map((c) => c.text.isEmpty ? null : c.text).toList();
+      final tracks = List<String?>.generate(
+        _channelCount,
+        (i) => _trackControllers[i].text.isEmpty ? null : _trackControllers[i].text,
+      );
       
       if (_currentEntryId != null) {
-        // 如果是编辑现有条目，调用更新方法
         final existingEntry = _entries.firstWhere((entry) => entry.id == _currentEntryId);
         final updatedEntry = existingEntry.copyWith(
           fileName: _fileNameController.text,
@@ -575,30 +634,24 @@ class _RecordingsPageState extends State<RecordingsPage> {
           slate: _slateController.text,
           notes: _notesController.text,
           tracks: tracks,
+          trackChecked: List.from(_trackCheckedStates),
         );
         await _updateEntry(updatedEntry);
       } else {
-        // 如果是新条目，创建新记录
-        final entry = RecordingEntry(
+        final entry = RecordingEntry.withTracks(
           fileName: _fileNameController.text,
           startTC: _startTCController.text,
           scene: _sceneController.text,
           take: _takeController.text,
           slate: _slateController.text,
-          isDiscarded: false,
+          isDiscarded: _isDiscarded,
           notes: _notesController.text,
           createdAt: DateTime.now(),
-          track1: tracks[0],
-          track2: tracks[1],
-          track3: tracks[2],
-          track4: tracks[3],
-          track5: tracks[4],
-          track6: tracks[5],
-          track7: tracks[6],
-          track8: tracks[7],
+          tracks: tracks,
+          trackChecked: List.from(_trackCheckedStates),
         );
 
-        await DatabaseHelper.instance.saveRecordingEntry(entry);
+        await widget.recordingRepository.saveRecording(entry);
       }
       
       await _loadExistingRecordings();
@@ -621,18 +674,19 @@ class _RecordingsPageState extends State<RecordingsPage> {
         slate: _slateController.text,
         notes: _notesController.text,
         tracks: _trackControllers.map((c) => c.text.isEmpty ? null : c.text).toList(),
+        trackChecked: List.from(_trackCheckedStates),
       );
 
-      await _dbHelper.updateRecordingEntry(updatedEntry);
+      await widget.recordingRepository.updateRecording(updatedEntry);
       await _loadExistingRecordings();
-        _clearForm();
-      }
+      _clearForm();
+    }
   }
 
   Future<void> _deleteEntry(RecordingEntry entry) async {
     if (entry.id != null) {
       try {
-        await _dbHelper.deleteRecordingEntry(entry.id!);
+        await widget.recordingRepository.deleteRecording(entry.id!);
         await _loadExistingRecordings();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('记录已删除')),
@@ -646,75 +700,12 @@ class _RecordingsPageState extends State<RecordingsPage> {
   }
 
   Future<void> _generatePDF() async {
-    final pdfGenerator = PdfGenerator(_dbHelper, context);
-    await pdfGenerator.generateRecordingReport();
-  }
-
-  List<String> _getTrackHeaders() {
-    return List.generate(8, (index) => '轨道 ${index + 1}');
-  }
-
-  List<String> _formatEntry(RecordingEntry entry) {
-    return [
-      entry.fileName,
-      entry.startTC,
-      entry.scene,
-      entry.take,
-      entry.slate,
-      entry.isDiscarded ? '废' : '过/保',
-      entry.track1 ?? '',
-      entry.track2 ?? '',
-      entry.track3 ?? '',
-      entry.track4 ?? '',
-      entry.track5 ?? '',
-      entry.track6 ?? '',
-      entry.track7 ?? '',
-      entry.track8 ?? '',
-      entry.notes
-    ];
-  }
-
-  Widget _buildTrackFields() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('轨道信息', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            TextButton.icon(
-              onPressed: _showTrackSettings,
-              icon: const Icon(Icons.settings),
-              label: const Text('设置轨道名称'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 3,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: RecordingEntry.maxTracks,
-          itemBuilder: (context, index) {
-            return TextFormField(
-              controller: _trackControllers[index],
-              decoration: InputDecoration(
-                labelText: '轨道 ${index + 1}',
-                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+    final pdfGenerator = PdfGenerator(
+      recordingRepository: widget.recordingRepository,
+      settingsRepository: widget.settingsRepository,
+      preferencesRepository: widget.preferencesRepository,
     );
+    await pdfGenerator.generateRecordingReport();
   }
 
   Widget _buildTrackChips(RecordingEntry entry) {
@@ -737,9 +728,41 @@ class _RecordingsPageState extends State<RecordingsPage> {
     );
   }
 
+  Widget _buildTrackCheckboxes() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('使用轨道', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          children: List.generate(_channelCount, (index) {
+            final trackName = _trackControllers[index].text;
+            final label = trackName.isEmpty ? '轨道 ${index + 1}' : trackName;
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Checkbox(
+                  value: _trackCheckedStates[index],
+                  onChanged: (value) {
+                    setState(() {
+                      _trackCheckedStates[index] = value ?? false;
+                    });
+                  },
+                ),
+                Text(label),
+              ],
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
   Future<void> _toggleDiscard(RecordingEntry entry) async {
     final updatedEntry = entry.copyWith(isDiscarded: !entry.isDiscarded);
-    await DatabaseHelper.instance.updateRecordingEntry(updatedEntry);
+    await widget.recordingRepository.updateRecording(updatedEntry);
     await _loadExistingRecordings();
   }
 
@@ -748,26 +771,45 @@ class _RecordingsPageState extends State<RecordingsPage> {
       context: context,
       builder: (context) => TrackSettingsDialog(
         initialTrackNames: _trackControllers.map((c) => c.text).toList(),
+        channelCount: _channelCount,
       ),
     );
 
     if (result != null) {
       setState(() {
-        for (var i = 0; i < 8; i++) {
+        for (var i = 0; i < _channelCount; i++) {
           _trackControllers[i].text = result[i];
           _lastTrackNames[i] = result[i];
         }
       });
     }
   }
+
+  List<Map<String, dynamic>> getTrackNameChanges() {
+    final changes = <Map<String, dynamic>>[];
+    for (var i = 0; i < _channelCount; i++) {
+      final currentName = _trackControllers[i].text;
+      final originalName = _originalTrackNames[i];
+      if (originalName.isNotEmpty && currentName != originalName) {
+        changes.add({
+          'trackIndex': i,
+          'oldName': originalName,
+          'newName': currentName,
+        });
+      }
+    }
+    return changes;
+  }
 }
 
 class TrackSettingsDialog extends StatefulWidget {
   final List<String> initialTrackNames;
+  final int channelCount;
 
   const TrackSettingsDialog({
     super.key,
     required this.initialTrackNames,
+    required this.channelCount,
   });
 
   @override
@@ -781,7 +823,7 @@ class _TrackSettingsDialogState extends State<TrackSettingsDialog> {
   void initState() {
     super.initState();
     _controllers = List.generate(
-      8,
+      widget.channelCount,
       (index) => TextEditingController(text: widget.initialTrackNames[index]),
     );
   }
@@ -808,7 +850,7 @@ class _TrackSettingsDialogState extends State<TrackSettingsDialog> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            for (var i = 0; i < 8; i++)
+            for (var i = 0; i < widget.channelCount; i++)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: TextFormField(

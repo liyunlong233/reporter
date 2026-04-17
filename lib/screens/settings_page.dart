@@ -1,25 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:reporter/database/database_helper.dart';
+import 'package:reporter/data/repositories/local_preferences_repository.dart';
+import 'package:reporter/models/app_preferences.dart';
 import 'package:reporter/models/app_settings.dart';
+import 'package:reporter/repositories/settings_repository.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  final SettingsRepository settingsRepository;
+  final LocalPreferencesRepository preferencesRepository;
+
+  const SettingsPage({
+    super.key,
+    required this.settingsRepository,
+    required this.preferencesRepository,
+  });
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  final _dbHelper = DatabaseHelper.instance;
+  int _selectedChannelCount = 8;
+  List<String> _fileFormats = [];
+  List<String> _equipmentModels = [];
+  String? _selectedFileFormat;
+  String? _selectedEquipmentModel;
 
   Future<void> _loadSettings() async {
-    final settings = await _dbHelper.getAppSettings();
+    final settings = await widget.settingsRepository.getSettings();
     if (settings != null) {
       _projectNameController.text = settings.projectName;
       _companyController.text = settings.productionCompany;
@@ -30,6 +37,24 @@ class _SettingsPageState extends State<SettingsPage> {
       _frameRateController.text = settings.frameRate.toString();
       _rollNumberController.text = settings.rollNumber;
       _selectedDate = settings.projectDate;
+      _selectedChannelCount = settings.channelCount;
+    }
+
+    final prefs = await widget.preferencesRepository.getPreferences();
+    if (prefs != null) {
+      setState(() {
+        _fileFormats = prefs.defaultFileFormats;
+        _equipmentModels = prefs.defaultEquipmentModels;
+        _selectedFileFormat = prefs.selectedFileFormat;
+        _selectedEquipmentModel = prefs.selectedEquipmentModel;
+
+        if (_selectedFileFormat != null && _selectedFileFormat!.isNotEmpty) {
+          _formatController.text = _selectedFileFormat!;
+        }
+        if (_selectedEquipmentModel != null && _selectedEquipmentModel!.isNotEmpty) {
+          _equipmentController.text = _selectedEquipmentModel!;
+        }
+      });
     }
   }
 
@@ -44,9 +69,26 @@ class _SettingsPageState extends State<SettingsPage> {
       frameRate: double.tryParse(_frameRateController.text) ?? 24.0,
       rollNumber: _rollNumberController.text,
       projectDate: _selectedDate,
+      channelCount: _selectedChannelCount,
     );
-    await _dbHelper.saveAppSettings(settings);
+    await widget.settingsRepository.saveSettings(settings);
+
+    final prefs = AppPreferences(
+      selectedFileFormat: _formatController.text,
+      selectedEquipmentModel: _equipmentController.text,
+    );
+    final existingPrefs = await widget.preferencesRepository.getPreferences();
+    if (existingPrefs != null) {
+      await widget.preferencesRepository.savePreferences(
+        prefs.copyWith(
+          defaultFileFormats: existingPrefs.defaultFileFormats,
+          defaultEquipmentModels: existingPrefs.defaultEquipmentModels,
+          includeDiscardedInPDF: existingPrefs.includeDiscardedInPDF,
+        ),
+      );
+    }
   }
+
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController _companyController = TextEditingController();
@@ -60,6 +102,12 @@ class _SettingsPageState extends State<SettingsPage> {
   DateTime _selectedDate = DateTime.now();
 
   @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
@@ -69,7 +117,7 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: true,
-          title: const Text('基本设置'),
+          title: const Text('项目设置'),
         ),
         body: Padding(
           padding: const EdgeInsets.all(20),
@@ -81,10 +129,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 _buildTextFormField('制作公司', _companyController),
                 _buildTextFormField('录音师', _engineerController),
                 _buildTextFormField('话筒员', _boomOperatorController),
-                _buildTextFormField('设备型号', _equipmentController),
-                _buildTextFormField('文件格式', _formatController),
+                _buildEquipmentDropdown(),
+                _buildFileFormatDropdown(),
                 _buildTextFormField('项目帧率', _frameRateController),
                 _buildDatePicker(),
+                _buildChannelCountSelector(),
                 _buildTextFormField('卷号', _rollNumberController),
                 const SizedBox(height: 30),
                 ElevatedButton(
@@ -107,6 +156,78 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildEquipmentDropdown() {
+    if (_equipmentModels.isEmpty) {
+      return _buildTextFormField('设备型号', _equipmentController);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownButtonFormField<String>(
+          value: _selectedEquipmentModel,
+          decoration: const InputDecoration(labelText: '设备型号'),
+          hint: const Text('选择设备型号'),
+          items: _equipmentModels.map((model) {
+            return DropdownMenuItem(
+              value: model,
+              child: Text(model),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedEquipmentModel = value;
+              if (value != null) {
+                _equipmentController.text = value;
+              }
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _equipmentController,
+          decoration: const InputDecoration(labelText: '或手动输入设备型号'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFileFormatDropdown() {
+    if (_fileFormats.isEmpty) {
+      return _buildTextFormField('文件格式', _formatController);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownButtonFormField<String>(
+          value: _selectedFileFormat,
+          decoration: const InputDecoration(labelText: '文件格式'),
+          hint: const Text('选择文件格式'),
+          items: _fileFormats.map((format) {
+            return DropdownMenuItem(
+              value: format,
+              child: Text(format),
+            );
+          }).toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedFileFormat = value;
+              if (value != null) {
+                _formatController.text = value;
+              }
+            });
+          },
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _formatController,
+          decoration: const InputDecoration(labelText: '或手动输入文件格式'),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDatePicker() {
     return ListTile(
       title: const Text('项目日期'),
@@ -126,6 +247,35 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildChannelCountSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          const Text('通道数', style: TextStyle(fontSize: 16)),
+          const SizedBox(width: 16),
+          ...[8, 16, 24].map((count) {
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() => _selectedChannelCount = count);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: _selectedChannelCount == count ? Theme.of(context).primaryColor : null,
+                    foregroundColor: _selectedChannelCount == count ? Colors.white : null,
+                  ),
+                  child: Text('$count'),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Future<void> _saveSettings() async {
     if (_formKey.currentState!.validate()) {
       final settings = AppSettings(
@@ -138,9 +288,10 @@ class _SettingsPageState extends State<SettingsPage> {
         rollNumber: _rollNumberController.text.isEmpty ? '未输入' : _rollNumberController.text,
         frameRate: double.tryParse(_frameRateController.text) ?? 0,
         projectDate: _selectedDate,
+        channelCount: _selectedChannelCount,
       );
 
-      await _dbHelper.saveAppSettings(settings);
+      await widget.settingsRepository.saveSettings(settings);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('设置保存成功')),
       );

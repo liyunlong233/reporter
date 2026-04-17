@@ -1,15 +1,18 @@
 class AppSettings {
-  String projectName;
-  String productionCompany;
-  String soundEngineer;
-  String boomOperator;
-  String equipmentModel;
-  String fileFormat;
-  double frameRate;
-  DateTime projectDate;
-  String rollNumber;
+  final int? id;
+  final String projectName;
+  final String productionCompany;
+  final String soundEngineer;
+  final String boomOperator;
+  final String equipmentModel;
+  final String fileFormat;
+  final double frameRate;
+  final DateTime projectDate;
+  final String rollNumber;
+  final int channelCount;
 
   AppSettings({
+    this.id,
     required this.projectName,
     required this.productionCompany,
     required this.soundEngineer,
@@ -19,10 +22,11 @@ class AppSettings {
     required this.frameRate,
     required this.projectDate,
     required this.rollNumber,
+    this.channelCount = 8,
   });
 
   Map<String, dynamic> toMap() => {
-    
+    if (id != null) 'id': id,
     'projectName': projectName,
     'productionCompany': productionCompany,
     'soundEngineer': soundEngineer,
@@ -32,9 +36,11 @@ class AppSettings {
     'frameRate': frameRate,
     'projectDate': projectDate.toIso8601String(),
     'rollNumber': rollNumber,
+    'channelCount': channelCount,
   };
 
   factory AppSettings.fromMap(Map<String, dynamic> map) => AppSettings(
+    id: map['id'] as int?,
     projectName: map['projectName'],
     productionCompany: map['productionCompany'],
     soundEngineer: map['soundEngineer'],
@@ -44,5 +50,6 @@ class AppSettings {
     frameRate: map['frameRate'],
     projectDate: DateTime.parse(map['projectDate']),
     rollNumber: map['rollNumber'],
+    channelCount: map['channelCount'] as int? ?? 8,
   );
 }

@@ -25,12 +25,12 @@ environment:
 flutter:
   uses-material-design: true
   assets:
-    - assets/fonts/NotoSansSC-Regular.ttf
+    - assets/fonts/NotoSansSCMedium-4.ttf
     - assets/fonts/logo.png
   fonts:
     - family: NotoSansSC
       fonts:
-        - asset: assets/fonts/NotoSansSC-Regular.ttf
+        - asset: assets/fonts/NotoSansSCMedium-4.ttf
 
 
 
@@ -48,7 +48,7 @@ dependencies:
   printing: ^5.10.1
   path_provider: ^2.1.1
   sqflite: ^2.3.3
-  intl: ^0.19.0
+  intl: 0.20.2
   flutter_localizations:
     sdk: flutter
 

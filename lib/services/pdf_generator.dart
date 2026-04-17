@@ -1,27 +1,37 @@
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:reporter/database/database_helper.dart';
+import 'package:reporter/data/repositories/local_preferences_repository.dart';
 import 'package:reporter/models/app_settings.dart';
 import 'package:reporter/models/recording_entry.dart';
-import 'package:reporter/models/track_config.dart';
+import 'package:reporter/repositories/recording_repository.dart';
+import 'package:reporter/repositories/settings_repository.dart';
 
 class PdfGenerator {
-  final DatabaseHelper _dbHelper;
-  final BuildContext context;
+  final RecordingRepository _recordingRepository;
+  final SettingsRepository _settingsRepository;
+  final LocalPreferencesRepository _preferencesRepository;
 
-  PdfGenerator(this._dbHelper, this.context);
+  PdfGenerator({
+    required RecordingRepository recordingRepository,
+    required SettingsRepository settingsRepository,
+    required LocalPreferencesRepository preferencesRepository,
+  })  : _recordingRepository = recordingRepository,
+        _settingsRepository = settingsRepository,
+        _preferencesRepository = preferencesRepository;
 
   Future<void> generateRecordingReport() async {
     final chineseFont = await _loadChineseFont();
     final logoBytes = await _loadLogoImage();
-    final allEntries = await _dbHelper.getAllRecordingEntries();
-    // 过滤掉已删除的条目
-    final entries = allEntries.where((entry) => !entry.isDiscarded).toList();
-    final appSettings = await _dbHelper.getAppSettings();
+    final allEntries = await _recordingRepository.getAllRecordings();
+    final appSettings = await _settingsRepository.getSettings();
+    final preferences = await _preferencesRepository.getPreferences();
+    
+    final includeDiscarded = preferences?.includeDiscardedInPDF ?? true;
+    final entries = includeDiscarded 
+        ? allEntries 
+        : allEntries.where((entry) => !entry.isDiscarded).toList();
 
     final pdf = pw.Document(
       theme: pw.ThemeData.withFont(base: chineseFont),
@@ -50,11 +60,12 @@ class PdfGenerator {
     Uint8List logoBytes,
     pw.Font chineseFont,
   ) {
+    final channelCount = appSettings?.channelCount ?? 8;
     final pages = <pw.Widget>[];
     var currentStart = 0;
 
-    pw.Widget _buildFirstPage(List<RecordingEntry> entries, AppSettings? appSettings,
-        Uint8List logoBytes, pw.Font chineseFont) {
+    pw.Widget buildFirstPage(List<RecordingEntry> entries, AppSettings? appSettings,
+        Uint8List logoBytes, pw.Font chineseFont, int channelCount) {
       return pw.Stack(
         children: [
           _buildLogo(logoBytes),
@@ -64,7 +75,7 @@ class PdfGenerator {
               pw.Header(text: '同期录音报告', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
               _buildInfoTable(appSettings, chineseFont),
               pw.SizedBox(height: 20),
-              _buildRecordingTable(entries, chineseFont),
+              _buildRecordingTable(entries, chineseFont, channelCount),
               if (entries.length == entries.length) _buildSignatureArea(chineseFont)
             ],
           ),
@@ -74,19 +85,16 @@ class PdfGenerator {
     final pageFormat = PdfPageFormat.a4;
     final rowHeight = 15;
     
-    // 首页布局（包含信息表）
-    final firstPageHeight = pageFormat.height - 200 - 200; // 扣除页眉、信息表高度和边距
+    final firstPageHeight = pageFormat.height - 200 - 200;
     final firstPageMaxEntries = (firstPageHeight / (rowHeight * 2)).floor();
     
-    // 添加首页
     if (entries.isNotEmpty) {
       final firstPageEnd = firstPageMaxEntries.clamp(0, entries.length);
       final firstPageEntries = entries.sublist(0, firstPageEnd);
-      pages.add(_buildFirstPage(firstPageEntries, appSettings, logoBytes, chineseFont));
+      pages.add(buildFirstPage(firstPageEntries, appSettings, logoBytes, chineseFont, channelCount));
       currentStart = firstPageEnd;
     }
 
-    // 后续页面布局（仅录音表格）
     final subsequentPageHeight = pageFormat.height - 5;
     final subsequentPageMaxEntries = (subsequentPageHeight / (rowHeight * 2)).floor();
     
@@ -104,8 +112,27 @@ class PdfGenerator {
               children: [
                 pw.Header(text: '同期录音报告', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
                 pw.SizedBox(height: 20),
-                _buildRecordingTable(pageEntries, chineseFont),
+                _buildRecordingTable(pageEntries, chineseFont, channelCount),
                 if (currentEnd >= entries.length) _buildSignatureArea(chineseFont)
+              ],
+            ),
+          ],
+        )
+      );
+    }
+    
+    final trackNameChanges = _getTrackNameChanges(entries, channelCount);
+    if (entries.isNotEmpty) {
+      pages.add(
+        pw.Stack(
+          children: [
+            _buildLogo(logoBytes),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Header(text: '轨道总览', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
+                pw.SizedBox(height: 20),
+                _buildTrackNamesTable(entries, trackNameChanges, chineseFont, channelCount),
               ],
             ),
           ],
@@ -117,7 +144,7 @@ class PdfGenerator {
   }
 
   Future<pw.Font> _loadChineseFont() async {
-    final fontData = await rootBundle.load('assets/fonts/NotoSansSC-Regular.ttf');
+    final fontData = await rootBundle.load('assets/fonts/NotoSansSCMedium-4.ttf');
     return pw.Font.ttf(fontData);
   }
 
@@ -180,16 +207,158 @@ class PdfGenerator {
   pw.Widget _buildRecordingTable(
     List<RecordingEntry> entries,
     pw.Font chineseFont,
+    int channelCount,
   ) {
-    return pw.Table.fromTextArray(
-      headers: _getTableHeaders(),
-      data: entries.map((e) => _formatEntry(e)).toList(),
-      headerStyle: pw.TextStyle(font: chineseFont),
-      cellStyle: pw.TextStyle(font: chineseFont),
+    final headers = _getTableHeaders(channelCount);
+    final trackNameChanges = _getTrackNameChanges(entries, channelCount);
+    
+    final changedTracksMap = <int, Set<int>>{};
+    for (var change in trackNameChanges) {
+      final entryIndex = change['entryIndex'] as int;
+      final prevTracks = change['prevTracks'] as List<String?>;
+      final currentTracks = change['currentTracks'] as List<String?>;
+      
+      final changedTracks = <int>{};
+      for (var trackIdx = 0; trackIdx < channelCount; trackIdx++) {
+        final prevName = prevTracks[trackIdx];
+        final currentName = currentTracks[trackIdx];
+        if (prevName != null && prevName.isNotEmpty && 
+            currentName != null && currentName.isNotEmpty &&
+            prevName != currentName) {
+          changedTracks.add(trackIdx);
+        }
+      }
+      if (changedTracks.isNotEmpty) {
+        changedTracksMap[entryIndex] = changedTracks;
+      }
+    }
+    
+    return pw.Builder(
+      builder: (context) {
+        final table = pw.Table(
+          border: pw.TableBorder.all(),
+          children: [
+            pw.TableRow(
+              children: headers.map((header) {
+                return pw.Padding(
+                  padding: const pw.EdgeInsets.all(4),
+                  child: pw.Text(
+                    header,
+                    style: pw.TextStyle(
+                      font: chineseFont,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            ...entries.asMap().entries.map((entry) {
+              final index = entry.key;
+              final e = entry.value;
+              final rowData = _formatEntry(e, channelCount);
+              final changedTracks = changedTracksMap[index] ?? <int>{};
+              
+              return pw.TableRow(
+                children: rowData.asMap().entries.map((cell) {
+                  final cellIndex = cell.key;
+                  final cellValue = cell.value;
+                  final isTrackCell = cellIndex >= 6 && cellIndex < 6 + channelCount;
+                  final isChecked = isTrackCell && cellValue == '■';
+                  
+                  final bgColor = e.isDiscarded ? PdfColors.red50 : null;
+                  
+                  if (isTrackCell) {
+                    final trackIdx = cellIndex - 6;
+                    final hasChanged = changedTracks.contains(trackIdx);
+                    final trackName = e.tracks[trackIdx] ?? '';
+                    
+                    final cellColor = hasChanged ? PdfColors.yellow200 : (isChecked ? PdfColors.green50 : bgColor);
+                    
+                    return pw.Container(
+                      color: cellColor,
+                      padding: const pw.EdgeInsets.all(4),
+                      child: pw.Row(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          if (hasChanged)
+                            pw.Container(
+                              margin: const pw.EdgeInsets.only(right: 2),
+                              width: 10,
+                              height: 10,
+                              decoration: pw.BoxDecoration(
+                                shape: pw.BoxShape.circle,
+                                color: PdfColors.yellow,
+                                border: pw.Border.all(color: PdfColors.black, width: 1),
+                              ),
+                            ),
+                          if (isChecked && !hasChanged)
+                            pw.Text(
+                              '✓',
+                              style: pw.TextStyle(
+                                font: chineseFont,
+                                fontSize: 14,
+                              ),
+                            ),
+                          if (hasChanged && trackName.isNotEmpty)
+                            pw.Text(
+                              trackName,
+                              style: pw.TextStyle(font: chineseFont),
+                            ),
+                        ],
+                      ),
+                    );
+                  }
+                  
+                  return pw.Container(
+                    color: bgColor,
+                    padding: const pw.EdgeInsets.all(4),
+                    child: pw.Text(
+                      cellValue,
+                      style: pw.TextStyle(font: chineseFont),
+                    ),
+                  );
+                }).toList(),
+              );
+            }),
+          ],
+        );
+        return table;
+      },
     );
   }
 
-  List<String> _getTableHeaders() {
+  List<Map<String, dynamic>> _getTrackNameChanges(List<RecordingEntry> entries, int channelCount) {
+    final changes = <Map<String, dynamic>>[];
+    for (var i = 1; i < entries.length; i++) {
+      final prevEntry = entries[i - 1];
+      final currentEntry = entries[i];
+      
+      bool hasAnyChange = false;
+      for (var trackIdx = 0; trackIdx < channelCount; trackIdx++) {
+        final prevTrackName = prevEntry.tracks[trackIdx];
+        final currentTrackName = currentEntry.tracks[trackIdx];
+        
+        if (prevTrackName != null && prevTrackName.isNotEmpty && 
+            currentTrackName != null && currentTrackName.isNotEmpty &&
+            prevTrackName != currentTrackName) {
+          hasAnyChange = true;
+          break;
+        }
+      }
+      
+      if (hasAnyChange) {
+        changes.add({
+          'entryIndex': i,
+          'fileName': currentEntry.fileName,
+          'prevTracks': prevEntry.tracks,
+          'currentTracks': currentEntry.tracks,
+        });
+      }
+    }
+    return changes;
+  }
+
+  List<String> _getTableHeaders(int channelCount) {
     return [
       '文件名',
       'StartTC',
@@ -197,19 +366,18 @@ class PdfGenerator {
       '镜',
       '次',
       '标签',
-      '轨道1',
-      '轨道2',
-      '轨道3',
-      '轨道4',
-      '轨道5',
-      '轨道6',
-      '轨道7',
-      '轨道8',
+      ...List.generate(channelCount, (i) => '${i + 1}'),
       '备注',
     ];
   }
 
-  List<String> _formatEntry(RecordingEntry entry) {
+  List<String> _formatEntry(RecordingEntry entry, int channelCount) {
+    final trackValues = List.generate(channelCount, (index) {
+      final track = entry.tracks[index];
+      if (track == null || track.isEmpty) return '';
+      return entry.trackChecked[index] ? '■' : '';
+    });
+    
     return [
       entry.fileName,
       entry.startTC,
@@ -217,7 +385,7 @@ class PdfGenerator {
       entry.take,
       entry.slate,
       entry.isDiscarded ? '废' : '过/保',
-      ...entry.tracks.map((track) => track ?? ''),
+      ...trackValues,
       entry.notes,
     ];
   }
@@ -235,6 +403,102 @@ class PdfGenerator {
           ),
         ],
       ),
+    );
+  }
+
+  pw.Widget _buildTrackNamesTable(
+    List<RecordingEntry> entries,
+    List<Map<String, dynamic>> changes,
+    pw.Font chineseFont,
+    int channelCount,
+  ) {
+    final changeSet = <int, Set<int>>{};
+    for (var change in changes) {
+      final entryIndex = change['entryIndex'] as int;
+      final prevTracks = change['prevTracks'] as List<String?>;
+      final currentTracks = change['currentTracks'] as List<String?>;
+      
+      final changedTracks = <int>{};
+      for (var trackIdx = 0; trackIdx < channelCount; trackIdx++) {
+        final prevName = prevTracks[trackIdx];
+        final currentName = currentTracks[trackIdx];
+        if (prevName != null && prevName.isNotEmpty && 
+            currentName != null && currentName.isNotEmpty &&
+            prevName != currentName) {
+          changedTracks.add(trackIdx);
+        }
+      }
+      if (changedTracks.isNotEmpty) {
+        changeSet[entryIndex] = changedTracks;
+      }
+    }
+    
+    final entriesToShow = <int>{0};
+    for (var change in changes) {
+      entriesToShow.add(change['entryIndex'] as int);
+    }
+    
+    return pw.Table(
+      border: pw.TableBorder.all(),
+      children: [
+        pw.TableRow(
+          children: [
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text('录音文件', style: pw.TextStyle(font: chineseFont, fontWeight: pw.FontWeight.bold)),
+            ),
+            ...List.generate(channelCount, (trackIdx) {
+              return pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text('轨道${trackIdx + 1}', style: pw.TextStyle(font: chineseFont, fontWeight: pw.FontWeight.bold)),
+              );
+            }),
+          ],
+        ),
+        ...entries.asMap().entries.where((entry) => entriesToShow.contains(entry.key)).map((entry) {
+          final index = entry.key;
+          final e = entry.value;
+          final changedTracks = changeSet[index] ?? <int>{};
+          
+          return pw.TableRow(
+            children: [
+              pw.Padding(
+                padding: const pw.EdgeInsets.all(8),
+                child: pw.Text(e.fileName, style: pw.TextStyle(font: chineseFont)),
+              ),
+              ...List.generate(channelCount, (trackIdx) {
+                final trackName = e.tracks[trackIdx] ?? '';
+                final hasChanged = changedTracks.contains(trackIdx);
+                
+                return pw.Container(
+                  color: hasChanged ? PdfColors.yellow200 : null,
+                  padding: const pw.EdgeInsets.all(8),
+                  child: pw.Row(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    children: [
+                      if (hasChanged)
+                        pw.Container(
+                          margin: const pw.EdgeInsets.only(right: 4),
+                          width: 12,
+                          height: 12,
+                          decoration: pw.BoxDecoration(
+                            shape: pw.BoxShape.circle,
+                            color: PdfColors.yellow,
+                            border: pw.Border.all(color: PdfColors.black, width: 1),
+                          ),
+                        ),
+                      pw.Text(
+                        trackName,
+                        style: pw.TextStyle(font: chineseFont),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          );
+        }),
+      ],
     );
   }
 }
