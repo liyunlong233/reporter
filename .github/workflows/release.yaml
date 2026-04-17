@@ -91,7 +91,9 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -q -r Reporter_ios_${{ github.ref_name }}_no_sign.ipa Payload
+          cd Payload
+          zip -r -y ../Reporter_ios_${{ github.ref_name }}_no_sign.ipa .
+          cd ..
           rm -rf Payload
 
       - name: Upload iOS build
