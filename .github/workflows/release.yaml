@@ -98,7 +98,8 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "${bundle_id}" == com.example.* ]]; then
-            echo "::warning::The iOS bundle identifier is still the Flutter template default (${bundle_id})."
+            echo "Error: The iOS bundle identifier is still the Flutter template default (${bundle_id})."
+            exit 1
           fi
         shell: bash
 
@@ -120,12 +121,13 @@ jobs:
           xattr -cr build/ios/iphoneos/Runner.app 2>/dev/null || true
 
           mkdir -p Payload
-          cp -R build/ios/iphoneos/Runner.app Payload/
+          ditto build/ios/iphoneos/Runner.app Payload/Runner.app
+          xattr -cr Payload/Runner.app 2>/dev/null || true
           find Payload -name '.DS_Store' -delete 2>/dev/null || true
           find Payload -name '._*' -delete 2>/dev/null || true
 
-          # A valid IPA must contain Payload/Runner.app at the zip root, and preserve symlinks.
-          zip -qry "$ipa_name" Payload
+          # Create a standards-compliant IPA: no macOS metadata, preserve symlinks, avoid recompression quirks.
+          COPYFILE_DISABLE=1 zip -X -0 -y -r "$ipa_name" Payload
           rm -rf Payload
 
           if [ ! -f "$ipa_name" ]; then
@@ -141,11 +143,28 @@ jobs:
         run: |
           set -euo pipefail
           ipa_name="Reporter_ios_${{ github.ref_name }}_nosign.ipa"
+          extract_dir="$(mktemp -d)"
+
+          trap 'rm -rf "${extract_dir}"' EXIT
 
           zipinfo -1 "$ipa_name" | grep -Fx "Payload/Runner.app/Info.plist" >/dev/null
+          zipinfo -1 "$ipa_name" | grep -Fx "Payload/Runner.app/Runner" >/dev/null
 
           if zipinfo -1 "$ipa_name" | grep -Fx "Runner.app/Info.plist" >/dev/null; then
             echo "Error: IPA is missing the required Payload/ wrapper."
+            exit 1
+          fi
+
+          if zipinfo -1 "$ipa_name" | grep -E '^(__MACOSX/|.*\/\._.*)$' >/dev/null; then
+            echo "Error: IPA still contains macOS metadata files."
+            exit 1
+          fi
+
+          unzip -q "$ipa_name" -d "$extract_dir"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$extract_dir/Payload/Runner.app/Info.plist" >/dev/null
+
+          if [ ! -L "$extract_dir/Payload/Runner.app/Frameworks/App.framework/App" ]; then
+            echo "Error: App.framework/App symlink was not preserved in the IPA."
             exit 1
           fi
         shell: bash
