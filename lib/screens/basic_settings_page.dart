@@ -21,7 +21,9 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
   @override
   void initState() {
     super.initState();
-    _loadPreferences();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPreferences();
+    });
   }
 
   Future<void> _loadPreferences() async {

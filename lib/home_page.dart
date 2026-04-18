@@ -26,7 +26,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
   Future<void> _loadData() async {
@@ -205,10 +207,12 @@ class _HomePageState extends State<HomePage> {
     if (confirm == true) {
       await widget.recordingRepository.deleteAllRecordings();
       await widget.settingsRepository.deleteSettings();
-      _loadData();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('所有数据已成功清除')),
-      );
+      if (mounted) {
+        _loadData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('所有数据已成功清除')),
+        );
+      }
     }
   }
 }

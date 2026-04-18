@@ -27,39 +27,42 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadSettings() async {
     final settings = await widget.settingsRepository.getSettings();
-    if (settings != null) {
-      _projectNameController.text = settings.projectName;
-      _companyController.text = settings.productionCompany;
-      _engineerController.text = settings.soundEngineer;
-      _boomOperatorController.text = settings.boomOperator;
-      _equipmentController.text = settings.equipmentModel;
-      _formatController.text = settings.fileFormat;
-      _frameRateController.text = settings.frameRate.toString();
-      _rollNumberController.text = settings.rollNumber;
-      _selectedDate = settings.projectDate;
-      _selectedChannelCount = settings.channelCount;
-    }
-
     final prefs = await widget.preferencesRepository.getPreferences();
-    if (prefs != null) {
+
+    if (mounted) {
       setState(() {
-        _fileFormats = prefs.defaultFileFormats;
-        _equipmentModels = prefs.defaultEquipmentModels;
-        _selectedFileFormat = prefs.selectedFileFormat;
-        _selectedEquipmentModel = prefs.selectedEquipmentModel;
+        if (settings != null) {
+          _projectNameController.text = settings.projectName;
+          _companyController.text = settings.productionCompany;
+          _engineerController.text = settings.soundEngineer;
+          _boomOperatorController.text = settings.boomOperator;
+          _equipmentController.text = settings.equipmentModel;
+          _formatController.text = settings.fileFormat;
+          _frameRateController.text = settings.frameRate.toString();
+          _rollNumberController.text = settings.rollNumber;
+          _selectedDate = settings.projectDate;
+          _selectedChannelCount = settings.channelCount;
+        }
 
-        if (_selectedFileFormat != null && !_fileFormats.contains(_selectedFileFormat)) {
-          _selectedFileFormat = null;
-        }
-        if (_selectedEquipmentModel != null && !_equipmentModels.contains(_selectedEquipmentModel)) {
-          _selectedEquipmentModel = null;
-        }
+        if (prefs != null) {
+          _fileFormats = prefs.defaultFileFormats;
+          _equipmentModels = prefs.defaultEquipmentModels;
+          _selectedFileFormat = prefs.selectedFileFormat;
+          _selectedEquipmentModel = prefs.selectedEquipmentModel;
 
-        if (_selectedFileFormat != null && _selectedFileFormat!.isNotEmpty) {
-          _formatController.text = _selectedFileFormat!;
-        }
-        if (_selectedEquipmentModel != null && _selectedEquipmentModel!.isNotEmpty) {
-          _equipmentController.text = _selectedEquipmentModel!;
+          if (_selectedFileFormat != null && !_fileFormats.contains(_selectedFileFormat)) {
+            _selectedFileFormat = null;
+          }
+          if (_selectedEquipmentModel != null && !_equipmentModels.contains(_selectedEquipmentModel)) {
+            _selectedEquipmentModel = null;
+          }
+
+          if (_selectedFileFormat != null && _selectedFileFormat!.isNotEmpty) {
+            _formatController.text = _selectedFileFormat!;
+          }
+          if (_selectedEquipmentModel != null && _selectedEquipmentModel!.isNotEmpty) {
+            _equipmentController.text = _selectedEquipmentModel!;
+          }
         }
       });
     }
@@ -111,7 +114,9 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSettings();
+    });
   }
 
   @override

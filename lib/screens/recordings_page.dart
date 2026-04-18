@@ -112,46 +112,48 @@ class _RecordingsPageState extends State<RecordingsPage> {
 
   Future<void> _clearForm() async {
     final settings = await widget.settingsRepository.getSettings();
-    if (settings != null) {
-      _channelCount = settings.channelCount;
-    }
-    
     final lastEntry = await widget.recordingRepository.getLatestRecording();
-    
-    setState(() {
-      _currentEntryId = null;
-      _isDiscarded = false;
-      _startTCController.clear();
-      _notesController.clear();
-      
-      _fileNameController.text = _generateNextFileName();
-      
-      if (lastEntry != null) {
-        _sceneController.text = lastEntry.scene;
-        _slateController.text = lastEntry.slate;
-        
-        if (lastEntry.isDiscarded) {
-          _takeController.text = _incrementTake(lastEntry.take);
+
+    if (mounted) {
+      setState(() {
+        if (settings != null) {
+          _channelCount = settings.channelCount;
+        }
+
+        _currentEntryId = null;
+        _isDiscarded = false;
+        _startTCController.clear();
+        _notesController.clear();
+
+        _fileNameController.text = _generateNextFileName();
+
+        if (lastEntry != null) {
+          _sceneController.text = lastEntry.scene;
+          _slateController.text = lastEntry.slate;
+
+          if (lastEntry.isDiscarded) {
+            _takeController.text = _incrementTake(lastEntry.take);
+          } else {
+            _takeController.clear();
+          }
+
+          for (var i = 0; i < _channelCount; i++) {
+            _trackControllers[i].text = lastEntry.tracks[i] ?? _lastTrackNames[i];
+            _trackCheckedStates[i] = lastEntry.trackChecked[i];
+            _lastTrackNames[i] = _trackControllers[i].text;
+            _lastTrackCheckedStates[i] = _trackCheckedStates[i];
+            _originalTrackNames[i] = _trackControllers[i].text;
+          }
         } else {
           _takeController.clear();
+          for (var i = 0; i < _channelCount; i++) {
+            _trackControllers[i].text = _lastTrackNames[i];
+            _trackCheckedStates[i] = _lastTrackCheckedStates[i];
+            _originalTrackNames[i] = _lastTrackNames[i];
+          }
         }
-        
-        for (var i = 0; i < _channelCount; i++) {
-          _trackControllers[i].text = lastEntry.tracks[i] ?? _lastTrackNames[i];
-          _trackCheckedStates[i] = lastEntry.trackChecked[i];
-          _lastTrackNames[i] = _trackControllers[i].text;
-          _lastTrackCheckedStates[i] = _trackCheckedStates[i];
-          _originalTrackNames[i] = _trackControllers[i].text;
-        }
-      } else {
-        _takeController.clear();
-        for (var i = 0; i < _channelCount; i++) {
-          _trackControllers[i].text = _lastTrackNames[i];
-          _trackCheckedStates[i] = _lastTrackCheckedStates[i];
-          _originalTrackNames[i] = _lastTrackNames[i];
-        }
-      }
-    });
+      });
+    }
     await _loadExistingRecordings();
   }
 
@@ -168,42 +170,47 @@ class _RecordingsPageState extends State<RecordingsPage> {
 
   Future<void> _loadLastInputValues() async {
     final settings = await widget.settingsRepository.getSettings();
-    if (settings != null) {
-      _channelCount = settings.channelCount;
-    }
-    
     final lastEntry = await widget.recordingRepository.getLatestRecording();
-    if (lastEntry != null) {
-      _currentEntryId = lastEntry.id;
-      _fileNameController.text = lastEntry.fileName;
-      _startTCController.text = lastEntry.startTC;
-      _sceneController.text = lastEntry.scene;
-      _takeController.text = lastEntry.take;
-      _slateController.text = lastEntry.slate;
-      _notesController.text = lastEntry.notes;
-      _isDiscarded = lastEntry.isDiscarded;
-      
-      _updateFileNameFormat(lastEntry.fileName);
-      
-      for (var i = 0; i < _channelCount; i++) {
-        _trackControllers[i].text = lastEntry.tracks[i] ?? _lastTrackNames[i];
-        _lastTrackNames[i] = _trackControllers[i].text;
-        _trackCheckedStates[i] = lastEntry.trackChecked[i];
-        _lastTrackCheckedStates[i] = lastEntry.trackChecked[i];
-        _originalTrackNames[i] = lastEntry.tracks[i] ?? '';
-      }
-    } else {
-      _lastFileNamePrefix = 'REC_';
-      _lastFileNameNumber = 0;
-      _lastFileNameDigits = 3;
-      _fileNameController.text = 'REC_001';
-      for (var i = 0; i < _channelCount; i++) {
-        _trackControllers[i].text = '';
-        _lastTrackNames[i] = '';
-        _trackCheckedStates[i] = false;
-        _lastTrackCheckedStates[i] = false;
-        _originalTrackNames[i] = '';
-      }
+
+    if (mounted) {
+      setState(() {
+        if (settings != null) {
+          _channelCount = settings.channelCount;
+        }
+
+        if (lastEntry != null) {
+          _currentEntryId = lastEntry.id;
+          _fileNameController.text = lastEntry.fileName;
+          _startTCController.text = lastEntry.startTC;
+          _sceneController.text = lastEntry.scene;
+          _takeController.text = lastEntry.take;
+          _slateController.text = lastEntry.slate;
+          _notesController.text = lastEntry.notes;
+          _isDiscarded = lastEntry.isDiscarded;
+
+          _updateFileNameFormat(lastEntry.fileName);
+
+          for (var i = 0; i < _channelCount; i++) {
+            _trackControllers[i].text = lastEntry.tracks[i] ?? _lastTrackNames[i];
+            _lastTrackNames[i] = _trackControllers[i].text;
+            _trackCheckedStates[i] = lastEntry.trackChecked[i];
+            _lastTrackCheckedStates[i] = lastEntry.trackChecked[i];
+            _originalTrackNames[i] = lastEntry.tracks[i] ?? '';
+          }
+        } else {
+          _lastFileNamePrefix = 'REC_';
+          _lastFileNameNumber = 0;
+          _lastFileNameDigits = 3;
+          _fileNameController.text = 'REC_001';
+          for (var i = 0; i < _channelCount; i++) {
+            _trackControllers[i].text = '';
+            _lastTrackNames[i] = '';
+            _trackCheckedStates[i] = false;
+            _lastTrackCheckedStates[i] = false;
+            _originalTrackNames[i] = '';
+          }
+        }
+      });
     }
   }
 
