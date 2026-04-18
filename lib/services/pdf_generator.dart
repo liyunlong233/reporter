@@ -89,7 +89,7 @@ class PdfGenerator {
     var currentStart = 0;
 
     pw.Widget buildFirstPage(List<RecordingEntry> entries, AppSettings? appSettings,
-        Uint8List logoBytes, pw.Font chineseFont, int channelCount) {
+        Uint8List logoBytes, pw.Font chineseFont, int channelCount, bool showSignature) {
       return pw.Stack(
         children: [
           _buildLogo(logoBytes),
@@ -100,7 +100,7 @@ class PdfGenerator {
               _buildInfoTable(appSettings, chineseFont),
               pw.SizedBox(height: 20),
               _buildRecordingTable(entries, chineseFont, channelCount),
-              if (entries.length == entries.length) _buildSignatureArea(chineseFont)
+              if (showSignature) _buildSignatureArea(chineseFont)
             ],
           ),
         ],
@@ -112,19 +112,23 @@ class PdfGenerator {
     final firstPageHeight = pageFormat.height - 200 - 200;
     final firstPageMaxEntries = (firstPageHeight / (rowHeight * 2)).floor();
     
+    final totalEntries = entries.length;
+    
     if (entries.isNotEmpty) {
-      final firstPageEnd = firstPageMaxEntries.clamp(0, entries.length);
+      final firstPageEnd = firstPageMaxEntries.clamp(0, totalEntries);
       final firstPageEntries = entries.sublist(0, firstPageEnd);
-      pages.add(buildFirstPage(firstPageEntries, appSettings, logoBytes, chineseFont, channelCount));
+      final isLastPage = firstPageEnd >= totalEntries;
+      pages.add(buildFirstPage(firstPageEntries, appSettings, logoBytes, chineseFont, channelCount, isLastPage));
       currentStart = firstPageEnd;
     }
 
     final subsequentPageHeight = pageFormat.height - 5;
     final subsequentPageMaxEntries = (subsequentPageHeight / (rowHeight * 2)).floor();
     
-    while (currentStart < entries.length) {
-      final currentEnd = (currentStart + subsequentPageMaxEntries).clamp(0, entries.length);
+    while (currentStart < totalEntries) {
+      final currentEnd = (currentStart + subsequentPageMaxEntries).clamp(0, totalEntries);
       final pageEntries = entries.sublist(currentStart, currentEnd);
+      final isLastPage = currentEnd >= totalEntries;
       currentStart = currentEnd;
       
       pages.add(
@@ -137,7 +141,7 @@ class PdfGenerator {
                 pw.Header(text: '同期录音报告', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
                 pw.SizedBox(height: 20),
                 _buildRecordingTable(pageEntries, chineseFont, channelCount),
-                if (currentEnd >= entries.length) _buildSignatureArea(chineseFont)
+                if (isLastPage) _buildSignatureArea(chineseFont)
               ],
             ),
           ],
@@ -499,10 +503,11 @@ class PdfGenerator {
                   padding: const pw.EdgeInsets.all(8),
                   child: pw.Row(
                     mainAxisSize: pw.MainAxisSize.min,
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       if (hasChanged)
                         pw.Container(
-                          margin: const pw.EdgeInsets.only(right: 4),
+                          margin: const pw.EdgeInsets.only(right: 4, top: 2),
                           width: 12,
                           height: 12,
                           decoration: pw.BoxDecoration(
@@ -511,9 +516,12 @@ class PdfGenerator {
                             border: pw.Border.all(color: PdfColors.black, width: 1),
                           ),
                         ),
-                      pw.Text(
-                        trackName,
-                        style: pw.TextStyle(font: chineseFont),
+                      pw.Expanded(
+                        child: pw.Text(
+                          trackName,
+                          style: pw.TextStyle(font: chineseFont),
+                          softWrap: true,
+                        ),
                       ),
                     ],
                   ),
