@@ -77,6 +77,12 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: |
+          pod install --repo-update || pod install
+        shell: bash
+
       - name: Build iOS Frameworks (No Codesign)
         run: flutter build ios --release --no-codesign || exit 1
 
@@ -89,10 +95,35 @@ jobs:
 
       - name: Create Unsigned IPA
         run: |
+          # Clean macOS extended attributes that cause code signature issues
+          xattr -cr build/ios/iphoneos/Runner.app 2>/dev/null || true
+          
+          # Create Payload directory
           mkdir -p Payload
+          
+          # Copy Runner.app to Payload (without metadata)
           cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -r Reporter_ios_${{ github.ref_name }}_no_sign.ipa Payload
+          
+          # Remove any macOS metadata files that may have been copied
+          find Payload -name '.DS_Store' -delete 2>/dev/null || true
+          find Payload -name '._*' -delete 2>/dev/null || true
+          
+          # Create IPA with clean zip (no macOS metadata)
+          cd Payload
+          zip -r -X ../Reporter_ios_${{ github.ref_name }}_no_sign.ipa Runner.app
+          cd ..
+          
+          # Clean up
           rm -rf Payload
+          
+          # Verify IPA was created
+          if [ ! -f "Reporter_ios_${{ github.ref_name }}_no_sign.ipa" ]; then
+            echo "❌ Error: IPA file not created!"
+            exit 1
+          fi
+          
+          echo "✅ IPA created successfully"
+          ls -lh Reporter_ios_${{ github.ref_name }}_no_sign.ipa
 
       - name: Upload iOS build
         uses: actions/upload-artifact@v4
