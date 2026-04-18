@@ -116,10 +116,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         await _saveCurrentInput();
-        return true;
       },
       child: Scaffold(
         appBar: AppBar(
@@ -314,9 +315,11 @@ class _SettingsPageState extends State<SettingsPage> {
       );
 
       await widget.settingsRepository.saveSettings(settings);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('设置保存成功')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('设置保存成功')),
+        );
+      }
     }
   }
 }

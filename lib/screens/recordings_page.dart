@@ -243,39 +243,49 @@ class _RecordingsPageState extends State<RecordingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
         if (Platform.isIOS) {
           await _saveCurrentInput();
-          return true;
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+          return;
         }
-        final shouldPop = await showDialog(
+        if (!context.mounted) return;
+        final shouldPop = await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
+          builder: (dialogContext) => AlertDialog(
             title: const Text('保存更改'),
             content: const Text('是否要保存当前输入再退出？'),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: const Text('取消'),
               ),
               TextButton(
-                onPressed: () {
-                  Navigator.pop(context, true);
-                },
+                onPressed: () => Navigator.pop(dialogContext, true),
                 child: const Text('返回但不保存'),
               ),
               TextButton(
                 onPressed: () async {
                   await _saveCurrentInput();
-                  Navigator.pop(context, true);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext, true);
+                  }
                 },
                 child: const Text('保存并返回'),
               ),
             ],
           ),
         );
-        return shouldPop ?? false;
+        if (shouldPop ?? false) {
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+        }
       },
       child: Scaffold(
       appBar: AppBar(
@@ -284,27 +294,32 @@ class _RecordingsPageState extends State<RecordingsPage> {
           onPressed: () async {
             if (Platform.isIOS) {
               await _saveCurrentInput();
-              Navigator.of(context).pop();
+              if (context.mounted) {
+                Navigator.of(context).pop();
+              }
               return;
             }
+            if (!context.mounted) return;
             final shouldPop = await showDialog<bool>(
               context: context,
-              builder: (context) => AlertDialog(
+              builder: (dialogContext) => AlertDialog(
                 title: const Text('保存更改'),
                 content: const Text('是否要保存当前输入再退出？'),
                 actions: [
                   TextButton(
-                    onPressed: () => Navigator.pop(context, false),
+                    onPressed: () => Navigator.pop(dialogContext, false),
                     child: const Text('取消'),
                   ),
                   TextButton(
-                    onPressed: () => Navigator.pop(context, true),
+                    onPressed: () => Navigator.pop(dialogContext, true),
                     child: const Text('返回但不保存'),
                   ),
                   TextButton(
                     onPressed: () async {
                       await _saveCurrentInput();
-                      Navigator.pop(context, true);
+                      if (dialogContext.mounted) {
+                        Navigator.pop(dialogContext, true);
+                      }
                     },
                     child: const Text('保存并返回'),
                   ),
@@ -312,7 +327,9 @@ class _RecordingsPageState extends State<RecordingsPage> {
               ),
             );
             if (shouldPop ?? false) {
-              Navigator.of(context).pop();
+              if (context.mounted) {
+                Navigator.of(context).pop();
+              }
             }
           },
         ),
@@ -692,9 +709,11 @@ class _RecordingsPageState extends State<RecordingsPage> {
       
       await _loadExistingRecordings();
       _clearForm();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('记录已保存')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('记录已保存')),
+        );
+      }
     }
   }
 
@@ -724,13 +743,17 @@ class _RecordingsPageState extends State<RecordingsPage> {
       try {
         await widget.recordingRepository.deleteRecording(entry.id!);
         await _loadExistingRecordings();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('记录已删除')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('记录已删除')),
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('删除失败: $e')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败: $e')),
+          );
+        }
       }
     }
   }

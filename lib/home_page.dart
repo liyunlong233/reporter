@@ -186,29 +186,31 @@ class _HomePageState extends State<HomePage> {
   Future<void> _confirmClearAllData() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('确认清空数据'),
         content: const Text('这将永久删除所有项目设置、轨道配置和录音记录！\n确定要继续吗？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('确认删除', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
 
-    if (confirm == true) {
+    if (confirm == true && mounted) {
       await widget.recordingRepository.deleteAllRecordings();
       await widget.settingsRepository.deleteSettings();
-      _loadData();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('所有数据已成功清除')),
-      );
+      if (mounted) {
+        _loadData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('所有数据已成功清除')),
+        );
+      }
     }
   }
 }

@@ -42,9 +42,11 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
       defaultEquipmentModels: _equipmentModels,
     );
     await widget.preferencesRepository.savePreferences(prefs);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('基本设置保存成功')),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('基本设置保存成功')),
+      );
+    }
   }
 
   void _addFileFormat() {
