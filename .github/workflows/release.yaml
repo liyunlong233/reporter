@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       logLevel:
-        description: 'Log level'
+        description: "Log level"
         required: true
-        default: 'warning'
+        default: "warning"
 
 jobs:
   flutter-build-android:
@@ -29,13 +29,13 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: "17"
+          distribution: "temurin"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.6'
+          flutter-version: "3.41.6"
 
       - name: Verify Flutter environment
         run: flutter doctor
@@ -69,13 +69,14 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.6'
+          flutter-version: "3.41.6"
 
       - name: Verify Flutter environment
         run: flutter doctor
 
       - name: Get Flutter dependencies
         run: flutter pub get
+        shell: bash
 
       - name: Install CocoaPods dependencies
         working-directory: ios
@@ -83,47 +84,233 @@ jobs:
           pod install --repo-update || pod install
         shell: bash
 
-      - name: Build iOS Frameworks (No Codesign)
-        run: flutter build ios --release --no-codesign || exit 1
+      - name: Build iOS app bundle (No Codesign)
+        run: flutter build ios --release --no-codesign
+        shell: bash
+
+      - name: Check iOS bundle identifier
+        run: |
+          bundle_id="$(sed -n 's/.*PRODUCT_BUNDLE_IDENTIFIER = \(.*\);/\1/p' ios/Runner.xcodeproj/project.pbxproj | head -n 1)"
+          echo "Using iOS bundle identifier: ${bundle_id}"
+          {
+            echo "## iOS build metadata"
+            echo "- Bundle identifier: \`${bundle_id}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${bundle_id}" == com.example.* ]]; then
+            echo "::warning::The iOS bundle identifier is still the Flutter template default (${bundle_id})."
+          fi
+        shell: bash
 
       - name: Check Runner.app exists
         run: |
+          set -euo pipefail
           if [ ! -d "build/ios/iphoneos/Runner.app" ]; then
-            echo "❌ Error: Runner.app not found after build!"
+            echo "Error: Runner.app not found after build."
+            exit 1
+          fi
+        shell: bash
+
+      - name: Create unsigned IPA for sideload tools
+        run: |
+          set -euo pipefail
+          ipa_name="Reporter_ios_${{ github.ref_name }}_unsigned.ipa"
+
+          rm -rf Payload "$ipa_name"
+          xattr -cr build/ios/iphoneos/Runner.app 2>/dev/null || true
+
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          find Payload -name '.DS_Store' -delete 2>/dev/null || true
+          find Payload -name '._*' -delete 2>/dev/null || true
+
+          # A valid IPA must contain Payload/Runner.app at the zip root.
+          ditto -c -k --keepParent Payload "$ipa_name"
+          rm -rf Payload
+
+          if [ ! -f "$ipa_name" ]; then
+            echo "Error: IPA file not created."
             exit 1
           fi
 
-      - name: Create Unsigned IPA
+          echo "Unsigned IPA created successfully."
+          ls -lh "$ipa_name"
+        shell: bash
+
+      - name: Validate unsigned IPA structure
         run: |
-          # Clean macOS extended attributes that cause code signature issues
-          xattr -cr build/ios/iphoneos/Runner.app 2>/dev/null || true
-          
-          # Create Payload directory
-          mkdir -p Payload
-          
-          # Copy Runner.app to Payload (without metadata)
-          cp -R build/ios/iphoneos/Runner.app Payload/
-          
-          # Remove any macOS metadata files that may have been copied
-          find Payload -name '.DS_Store' -delete 2>/dev/null || true
-          find Payload -name '._*' -delete 2>/dev/null || true
-          
-          # Create IPA with clean zip (no macOS metadata)
-          cd Payload
-          zip -r -X ../Reporter_ios_${{ github.ref_name }}_no_sign.ipa Runner.app
-          cd ..
-          
-          # Clean up
-          rm -rf Payload
-          
-          # Verify IPA was created
-          if [ ! -f "Reporter_ios_${{ github.ref_name }}_no_sign.ipa" ]; then
-            echo "❌ Error: IPA file not created!"
+          set -euo pipefail
+          ipa_name="Reporter_ios_${{ github.ref_name }}_unsigned.ipa"
+
+          zipinfo -1 "$ipa_name" | grep -Fx "Payload/Runner.app/Info.plist" >/dev/null
+
+          if zipinfo -1 "$ipa_name" | grep -Fx "Runner.app/Info.plist" >/dev/null; then
+            echo "Error: IPA is missing the required Payload/ wrapper."
             exit 1
           fi
-          
-          echo "✅ IPA created successfully"
-          ls -lh Reporter_ios_${{ github.ref_name }}_no_sign.ipa
+        shell: bash
+
+      - name: Install iOS signing assets
+        if: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 != '' && secrets.IOS_CERTIFICATE_PASSWORD != '' && secrets.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+        env:
+          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_BUNDLE_IDENTIFIER: ${{ vars.IOS_BUNDLE_IDENTIFIER }}
+          IOS_EXPORT_METHOD: ${{ vars.IOS_EXPORT_METHOD }}
+        run: |
+          set -euo pipefail
+
+          cert_path="$RUNNER_TEMP/ios_signing_certificate.p12"
+          profile_path="$RUNNER_TEMP/ios_signing_profile.mobileprovision"
+          profile_plist="$RUNNER_TEMP/ios_signing_profile.plist"
+          keychain_path="$RUNNER_TEMP/ios-signing.keychain-db"
+          keychain_password="$(openssl rand -hex 16)"
+
+          printf '%s' "$IOS_CERTIFICATE_P12_BASE64" | openssl base64 -d -A > "$cert_path"
+          printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | openssl base64 -d -A > "$profile_path"
+
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security default-keychain -s "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          security import "$cert_path" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain_path"
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          security cms -D -i "$profile_path" > "$profile_plist"
+
+          profile_uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$profile_plist")"
+          profile_name="$(/usr/libexec/PlistBuddy -c 'Print :Name' "$profile_plist")"
+          team_id="$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$profile_plist")"
+          application_identifier="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$profile_plist")"
+          profile_bundle_id="${application_identifier#*.}"
+          certificate_name="$(security find-identity -v -p codesigning "$keychain_path" | awk -F '\"' '/\"/{print $2; exit}')"
+
+          cp "$profile_path" "$HOME/Library/MobileDevice/Provisioning Profiles/$profile_uuid.mobileprovision"
+
+          if [[ -z "${IOS_BUNDLE_IDENTIFIER:-}" ]]; then
+            IOS_BUNDLE_IDENTIFIER="$profile_bundle_id"
+          fi
+
+          if [[ "$IOS_BUNDLE_IDENTIFIER" == *"*"* ]]; then
+            echo "::error::Set repository variable IOS_BUNDLE_IDENTIFIER when the provisioning profile uses a wildcard App ID."
+            exit 1
+          fi
+
+          profile_bundle_pattern="^${profile_bundle_id//./\\.}$"
+          profile_bundle_pattern="${profile_bundle_pattern//\*/.*}"
+          if [[ ! "$IOS_BUNDLE_IDENTIFIER" =~ $profile_bundle_pattern ]]; then
+            echo "::error::IOS_BUNDLE_IDENTIFIER ($IOS_BUNDLE_IDENTIFIER) does not match the provisioning profile App ID ($profile_bundle_id)."
+            exit 1
+          fi
+
+          if [[ -z "$certificate_name" ]]; then
+            echo "::error::No valid iOS code signing identity was imported."
+            exit 1
+          fi
+
+          export_method="${IOS_EXPORT_METHOD:-}"
+          if [[ -z "$export_method" ]]; then
+            if /usr/libexec/PlistBuddy -c 'Print :ProvisionsAllDevices' "$profile_plist" >/dev/null 2>&1; then
+              export_method="enterprise"
+            elif /usr/libexec/PlistBuddy -c 'Print :ProvisionedDevices:0' "$profile_plist" >/dev/null 2>&1; then
+              get_task_allow="$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:get-task-allow' "$profile_plist")"
+              if [[ "$get_task_allow" == "true" ]]; then
+                export_method="development"
+              else
+                export_method="ad-hoc"
+              fi
+            else
+              export_method="app-store"
+            fi
+          fi
+
+          {
+            echo "IOS_SIGNING_KEYCHAIN=$keychain_path"
+            echo "IOS_SIGNING_KEYCHAIN_PASSWORD=$keychain_password"
+            echo "IOS_PROVISIONING_PROFILE_NAME=$profile_name"
+            echo "IOS_TEAM_ID=$team_id"
+            echo "IOS_BUNDLE_IDENTIFIER=$IOS_BUNDLE_IDENTIFIER"
+            echo "IOS_EXPORT_METHOD=$export_method"
+            echo "IOS_CERTIFICATE_NAME=$certificate_name"
+          } >> "$GITHUB_ENV"
+        shell: bash
+
+      - name: Build signed IPA
+        if: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 != '' && secrets.IOS_CERTIFICATE_PASSWORD != '' && secrets.IOS_PROVISIONING_PROFILE_BASE64 != '' }}
+        run: |
+          set -euo pipefail
+
+          export_options_plist="$RUNNER_TEMP/ios_export_options.plist"
+          archive_path="$RUNNER_TEMP/Runner.xcarchive"
+          export_path="$RUNNER_TEMP/ios-export"
+          signed_ipa="Reporter_ios_${{ github.ref_name }}.ipa"
+
+          cat > "$export_options_plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>compileBitcode</key>
+            <false/>
+            <key>method</key>
+            <string>${IOS_EXPORT_METHOD}</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${IOS_BUNDLE_IDENTIFIER}</key>
+              <string>${IOS_PROVISIONING_PROFILE_NAME}</string>
+            </dict>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
+            <key>teamID</key>
+            <string>${IOS_TEAM_ID}</string>
+          </dict>
+          </plist>
+          EOF
+
+          rm -rf "$archive_path" "$export_path" "$signed_ipa"
+
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$archive_path" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$IOS_BUNDLE_IDENTIFIER" \
+            PROVISIONING_PROFILE_SPECIFIER="$IOS_PROVISIONING_PROFILE_NAME" \
+            CODE_SIGN_IDENTITY="$IOS_CERTIFICATE_NAME" \
+            archive
+
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$archive_path" \
+            -exportOptionsPlist "$export_options_plist" \
+            -exportPath "$export_path"
+
+          cp "$export_path/Runner.ipa" "$signed_ipa"
+          zipinfo -1 "$signed_ipa" | grep -Fx "Payload/Runner.app/Info.plist" >/dev/null
+        shell: bash
+
+      - name: Summarize iOS artifacts
+        run: |
+          set -euo pipefail
+
+          {
+            echo "## iOS artifacts"
+            echo "- \`Reporter_ios_${{ github.ref_name }}_unsigned.ipa\`: valid unsigned IPA for AltStore / Sideloadly style re-signing flows."
+            if [[ -f "Reporter_ios_${{ github.ref_name }}.ipa" ]]; then
+              echo "- \`Reporter_ios_${{ github.ref_name }}.ipa\`: signed IPA exported with the configured certificate and provisioning profile."
+            else
+              echo "- Signed IPA not generated because iOS signing secrets were not configured."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
 
       - name: Upload iOS build
         uses: actions/upload-artifact@v4
@@ -134,7 +321,7 @@ jobs:
   release:
     name: "Release"
     runs-on: "ubuntu-latest"
-    needs: [flutter-build-android, flutter-build-ios] 
+    needs: [flutter-build-android, flutter-build-ios]
     permissions: write-all
     steps:
       - name: Download all artifacts
