@@ -243,63 +243,18 @@ class _RecordingsPageState extends State<RecordingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        if (Platform.isIOS) {
-          await _saveCurrentInput();
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-          return;
-        }
-        if (!context.mounted) return;
-        final shouldPop = await showDialog<bool>(
-          context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('保存更改'),
-            content: const Text('是否要保存当前输入再退出？'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('返回但不保存'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  await _saveCurrentInput();
-                  if (dialogContext.mounted) {
-                    Navigator.pop(dialogContext, true);
-                  }
-                },
-                child: const Text('保存并返回'),
-              ),
-            ],
-          ),
-        );
-        if (shouldPop ?? false) {
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-        }
-      },
-      child: Scaffold(
+    return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () async {
             if (Platform.isIOS) {
               await _saveCurrentInput();
-              if (context.mounted) {
+              if (mounted) {
                 Navigator.of(context).pop();
               }
               return;
             }
-            if (!context.mounted) return;
             final shouldPop = await showDialog<bool>(
               context: context,
               builder: (dialogContext) => AlertDialog(
@@ -326,10 +281,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
                 ],
               ),
             );
-            if (shouldPop ?? false) {
-              if (context.mounted) {
-                Navigator.of(context).pop();
-              }
+            if (shouldPop == true && mounted) {
+              Navigator.of(context).pop();
             }
           },
         ),
@@ -357,19 +310,18 @@ class _RecordingsPageState extends State<RecordingsPage> {
           ),
         ],
       ),
-        body: Column(
-          children: [
-            _buildQuickInputCard(),
-            Expanded(
-              child: _buildRecordingsList(),
-            ),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _clearForm,
-          tooltip: '新建记录',
-          child: const Icon(Icons.add),
-        ),
+      body: Column(
+        children: [
+          _buildQuickInputCard(),
+          Expanded(
+            child: _buildRecordingsList(),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _clearForm,
+        tooltip: '新建记录',
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -667,104 +619,125 @@ class _RecordingsPageState extends State<RecordingsPage> {
   }
 
   Future<void> _addEntry() async {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      
-      _updateFileNameFormat(_fileNameController.text);
-      
-      final tracks = List<String?>.generate(
-        _channelCount,
-        (i) => _trackControllers[i].text.isEmpty ? null : _trackControllers[i].text,
-      );
-      
-      if (_currentEntryId != null) {
-        final existingEntry = _entries.firstWhere((entry) => entry.id == _currentEntryId);
-        final updatedEntry = existingEntry.copyWith(
-          fileName: _fileNameController.text,
-          startTC: _startTCController.text,
-          scene: _sceneController.text,
-          take: _takeController.text,
-          slate: _slateController.text,
-          notes: _notesController.text,
-          tracks: tracks,
-          trackChecked: List.from(_trackCheckedStates),
-        );
-        await _updateEntry(updatedEntry);
-      } else {
-        final entry = RecordingEntry.withTracks(
-          fileName: _fileNameController.text,
-          startTC: _startTCController.text,
-          scene: _sceneController.text,
-          take: _takeController.text,
-          slate: _slateController.text,
-          isDiscarded: _isDiscarded,
-          notes: _notesController.text,
-          createdAt: DateTime.now(),
-          tracks: tracks,
-          trackChecked: List.from(_trackCheckedStates),
-        );
-
-        await widget.recordingRepository.saveRecording(entry);
-      }
-      
-      await _loadExistingRecordings();
-      _clearForm();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('记录已保存')),
-        );
-      }
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
-  }
-
-  Future<void> _updateEntry(RecordingEntry entry) async {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      
-      final updatedEntry = entry.copyWith(
+    
+    _formKey.currentState!.save();
+    
+    _updateFileNameFormat(_fileNameController.text);
+    
+    final tracks = List<String?>.generate(
+      _channelCount,
+      (i) => _trackControllers[i].text.isEmpty ? null : _trackControllers[i].text,
+    );
+    
+    if (_currentEntryId != null) {
+      final existingEntry = _entries.firstWhere((entry) => entry.id == _currentEntryId);
+      final updatedEntry = existingEntry.copyWith(
         fileName: _fileNameController.text,
         startTC: _startTCController.text,
         scene: _sceneController.text,
         take: _takeController.text,
         slate: _slateController.text,
         notes: _notesController.text,
-        tracks: _trackControllers.map((c) => c.text.isEmpty ? null : c.text).toList(),
+        tracks: tracks,
+        trackChecked: List.from(_trackCheckedStates),
+      );
+      await _updateEntry(updatedEntry);
+    } else {
+      final entry = RecordingEntry.withTracks(
+        fileName: _fileNameController.text,
+        startTC: _startTCController.text,
+        scene: _sceneController.text,
+        take: _takeController.text,
+        slate: _slateController.text,
+        isDiscarded: _isDiscarded,
+        notes: _notesController.text,
+        createdAt: DateTime.now(),
+        tracks: tracks,
         trackChecked: List.from(_trackCheckedStates),
       );
 
-      await widget.recordingRepository.updateRecording(updatedEntry);
-      await _loadExistingRecordings();
-      _clearForm();
+      await widget.recordingRepository.saveRecording(entry);
     }
+    
+    if (!mounted) return;
+    
+    await _loadExistingRecordings();
+    _clearForm();
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('记录已保存')),
+      );
+    }
+  }
+
+  Future<void> _updateEntry(RecordingEntry entry) async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    
+    _formKey.currentState!.save();
+    
+    final updatedEntry = entry.copyWith(
+      fileName: _fileNameController.text,
+      startTC: _startTCController.text,
+      scene: _sceneController.text,
+      take: _takeController.text,
+      slate: _slateController.text,
+      notes: _notesController.text,
+      tracks: _trackControllers.map((c) => c.text.isEmpty ? null : c.text).toList(),
+      trackChecked: List.from(_trackCheckedStates),
+    );
+
+    await widget.recordingRepository.updateRecording(updatedEntry);
+    
+    if (!mounted) return;
+    
+    await _loadExistingRecordings();
+    _clearForm();
   }
 
   Future<void> _deleteEntry(RecordingEntry entry) async {
     if (entry.id != null) {
       try {
         await widget.recordingRepository.deleteRecording(entry.id!);
+        if (!mounted) return;
         await _loadExistingRecordings();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('记录已删除')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('记录已删除')),
+        );
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('删除失败: $e')),
-          );
-        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败: $e')),
+        );
       }
     }
   }
 
   Future<void> _generatePDF() async {
-    final pdfGenerator = PdfGenerator(
-      recordingRepository: widget.recordingRepository,
-      settingsRepository: widget.settingsRepository,
-      preferencesRepository: widget.preferencesRepository,
-    );
-    await pdfGenerator.generateRecordingReport();
+    try {
+      final pdfGenerator = PdfGenerator(
+        recordingRepository: widget.recordingRepository,
+        settingsRepository: widget.settingsRepository,
+        preferencesRepository: widget.preferencesRepository,
+      );
+      await pdfGenerator.generateRecordingReport();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PDF报告已生成')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('生成PDF失败: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildTrackChips(RecordingEntry entry) {
@@ -822,7 +795,9 @@ class _RecordingsPageState extends State<RecordingsPage> {
   Future<void> _toggleDiscard(RecordingEntry entry) async {
     final updatedEntry = entry.copyWith(isDiscarded: !entry.isDiscarded);
     await widget.recordingRepository.updateRecording(updatedEntry);
-    await _loadExistingRecordings();
+    if (mounted) {
+      await _loadExistingRecordings();
+    }
   }
 
   Future<void> _showTrackSettings() async {

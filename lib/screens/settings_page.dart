@@ -116,17 +116,16 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        await _saveCurrentInput();
-      },
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () async {
+              await _saveCurrentInput();
+              if (mounted) {
+                Navigator.of(context).pop();
+              }
+            },
           ),
           title: const Text('项目设置'),
         ),
@@ -153,7 +152,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ],
             ),
-          ),
         ),
       ),
     );
@@ -300,26 +298,29 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveSettings() async {
-    if (_formKey.currentState!.validate()) {
-      final settings = AppSettings(
-        projectName: _projectNameController.text,
-        productionCompany: _companyController.text.isEmpty ? '未输入' : _companyController.text,
-        soundEngineer: _engineerController.text.isEmpty ? '未输入' : _engineerController.text,
-        boomOperator: _boomOperatorController.text.isEmpty ? '未输入' : _boomOperatorController.text,
-        equipmentModel: _equipmentController.text.isEmpty ? '未输入' : _equipmentController.text,
-        fileFormat: _formatController.text.isEmpty ? '未输入' : _formatController.text,
-        rollNumber: _rollNumberController.text.isEmpty ? '未输入' : _rollNumberController.text,
-        frameRate: double.tryParse(_frameRateController.text) ?? 0,
-        projectDate: _selectedDate,
-        channelCount: _selectedChannelCount,
-      );
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    
+    final settings = AppSettings(
+      projectName: _projectNameController.text,
+      productionCompany: _companyController.text.isEmpty ? '未输入' : _companyController.text,
+      soundEngineer: _engineerController.text.isEmpty ? '未输入' : _engineerController.text,
+      boomOperator: _boomOperatorController.text.isEmpty ? '未输入' : _boomOperatorController.text,
+      equipmentModel: _equipmentController.text.isEmpty ? '未输入' : _equipmentController.text,
+      fileFormat: _formatController.text.isEmpty ? '未输入' : _formatController.text,
+      rollNumber: _rollNumberController.text.isEmpty ? '未输入' : _rollNumberController.text,
+      frameRate: double.tryParse(_frameRateController.text) ?? 0,
+      projectDate: _selectedDate,
+      channelCount: _selectedChannelCount,
+    );
 
-      await widget.settingsRepository.saveSettings(settings);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('设置保存成功')),
-        );
-      }
+    await widget.settingsRepository.saveSettings(settings);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('设置保存成功')),
+      );
     }
   }
 }
