@@ -125,7 +125,7 @@ jobs:
           find Payload -name '._*' -delete 2>/dev/null || true
 
           # A valid IPA must contain Payload/Runner.app at the zip root.
-          ditto -c -k --keepParent Payload "$ipa_name"
+          zip -qr "$ipa_name" Payload
           rm -rf Payload
 
           if [ ! -f "$ipa_name" ]; then
