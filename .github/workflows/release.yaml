@@ -84,8 +84,8 @@ jobs:
           pod install --repo-update || pod install
         shell: bash
 
-      - name: Build iOS app bundle (No Codesign)
-        run: flutter build ios --release --no-codesign
+      - name: Build iOS IPA (No Codesign)
+        run: flutter build ipa --release --no-codesign
         shell: bash
 
       - name: Check iOS bundle identifier
@@ -103,32 +103,21 @@ jobs:
           fi
         shell: bash
 
-      - name: Check Runner.app exists
+      - name: Check generated IPA exists
         run: |
           set -euo pipefail
-          if [ ! -d "build/ios/iphoneos/Runner.app" ]; then
-            echo "Error: Runner.app not found after build."
+          if [ ! -f "build/ios/ipa/Runner.ipa" ]; then
+            echo "Error: Flutter did not generate build/ios/ipa/Runner.ipa."
             exit 1
           fi
         shell: bash
 
-      - name: Create nosign IPA for sideload tools
+      - name: Rename nosign IPA for sideload tools
         run: |
           set -euo pipefail
           ipa_name="Reporter_ios_${{ github.ref_name }}_nosign.ipa"
-
-          rm -rf Payload "$ipa_name"
-          xattr -cr build/ios/iphoneos/Runner.app 2>/dev/null || true
-
-          mkdir -p Payload
-          ditto build/ios/iphoneos/Runner.app Payload/Runner.app
-          xattr -cr Payload/Runner.app 2>/dev/null || true
-          find Payload -name '.DS_Store' -delete 2>/dev/null || true
-          find Payload -name '._*' -delete 2>/dev/null || true
-
-          # Create a standards-compliant IPA: no macOS metadata, preserve symlinks, avoid recompression quirks.
-          COPYFILE_DISABLE=1 zip -X -0 -y -r "$ipa_name" Payload
-          rm -rf Payload
+          rm -f "$ipa_name"
+          cp build/ios/ipa/Runner.ipa "$ipa_name"
 
           if [ ! -f "$ipa_name" ]; then
             echo "Error: IPA file not created."
@@ -162,6 +151,8 @@ jobs:
 
           unzip -q "$ipa_name" -d "$extract_dir"
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$extract_dir/Payload/Runner.app/Info.plist" >/dev/null
+          /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$extract_dir/Payload/Runner.app/Info.plist" >/dev/null
+          /usr/libexec/PlistBuddy -c "Print :CFBundleSupportedPlatforms:0" "$extract_dir/Payload/Runner.app/Info.plist" >/dev/null
 
           if [ ! -e "$extract_dir/Payload/Runner.app/Frameworks/App.framework/App" ]; then
             echo "Error: App.framework/App is missing from the IPA."
