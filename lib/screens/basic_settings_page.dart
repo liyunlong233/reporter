@@ -81,7 +81,10 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('基本设置'),
       ),
       body: Padding(

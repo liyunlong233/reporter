@@ -279,7 +279,43 @@ class _RecordingsPageState extends State<RecordingsPage> {
       },
       child: Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () async {
+            if (Platform.isIOS) {
+              await _saveCurrentInput();
+              Navigator.of(context).pop();
+              return;
+            }
+            final shouldPop = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('保存更改'),
+                content: const Text('是否要保存当前输入再退出？'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('取消'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('返回但不保存'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await _saveCurrentInput();
+                      Navigator.pop(context, true);
+                    },
+                    child: const Text('保存并返回'),
+                  ),
+                ],
+              ),
+            );
+            if (shouldPop ?? false) {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
         title: const Text('录音记录'),
         actions: [
           IconButton(

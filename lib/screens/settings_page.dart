@@ -48,6 +48,13 @@ class _SettingsPageState extends State<SettingsPage> {
         _selectedFileFormat = prefs.selectedFileFormat;
         _selectedEquipmentModel = prefs.selectedEquipmentModel;
 
+        if (_selectedFileFormat != null && !_fileFormats.contains(_selectedFileFormat)) {
+          _selectedFileFormat = null;
+        }
+        if (_selectedEquipmentModel != null && !_equipmentModels.contains(_selectedEquipmentModel)) {
+          _selectedEquipmentModel = null;
+        }
+
         if (_selectedFileFormat != null && _selectedFileFormat!.isNotEmpty) {
           _formatController.text = _selectedFileFormat!;
         }
@@ -116,7 +123,10 @@ class _SettingsPageState extends State<SettingsPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          automaticallyImplyLeading: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
           title: const Text('项目设置'),
         ),
         body: Padding(
@@ -161,6 +171,12 @@ class _SettingsPageState extends State<SettingsPage> {
       return _buildTextFormField('设备型号', _equipmentController);
     }
 
+    final uniqueModels = _equipmentModels.toSet().toList();
+    
+    if (_selectedEquipmentModel != null && !uniqueModels.contains(_selectedEquipmentModel)) {
+      _selectedEquipmentModel = null;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -168,7 +184,7 @@ class _SettingsPageState extends State<SettingsPage> {
           value: _selectedEquipmentModel,
           decoration: const InputDecoration(labelText: '设备型号'),
           hint: const Text('选择设备型号'),
-          items: _equipmentModels.map((model) {
+          items: uniqueModels.map((model) {
             return DropdownMenuItem(
               value: model,
               child: Text(model),
@@ -197,6 +213,12 @@ class _SettingsPageState extends State<SettingsPage> {
       return _buildTextFormField('文件格式', _formatController);
     }
 
+    final uniqueFormats = _fileFormats.toSet().toList();
+    
+    if (_selectedFileFormat != null && !uniqueFormats.contains(_selectedFileFormat)) {
+      _selectedFileFormat = null;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -204,7 +226,7 @@ class _SettingsPageState extends State<SettingsPage> {
           value: _selectedFileFormat,
           decoration: const InputDecoration(labelText: '文件格式'),
           hint: const Text('选择文件格式'),
-          items: _fileFormats.map((format) {
+          items: uniqueFormats.map((format) {
             return DropdownMenuItem(
               value: format,
               child: Text(format),
