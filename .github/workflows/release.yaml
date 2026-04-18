@@ -163,8 +163,13 @@ jobs:
           unzip -q "$ipa_name" -d "$extract_dir"
           /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$extract_dir/Payload/Runner.app/Info.plist" >/dev/null
 
-          if [ ! -L "$extract_dir/Payload/Runner.app/Frameworks/App.framework/App" ]; then
-            echo "Error: App.framework/App symlink was not preserved in the IPA."
+          if [ ! -e "$extract_dir/Payload/Runner.app/Frameworks/App.framework/App" ]; then
+            echo "Error: App.framework/App is missing from the IPA."
+            exit 1
+          fi
+
+          if [ ! -e "$extract_dir/Payload/Runner.app/Frameworks/Flutter.framework/Flutter" ]; then
+            echo "Error: Flutter.framework/Flutter is missing from the IPA."
             exit 1
           fi
         shell: bash
