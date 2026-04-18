@@ -124,8 +124,8 @@ jobs:
           find Payload -name '.DS_Store' -delete 2>/dev/null || true
           find Payload -name '._*' -delete 2>/dev/null || true
 
-          # A valid IPA must contain Payload/Runner.app at the zip root.
-          zip -qr "$ipa_name" Payload
+          # A valid IPA must contain Payload/Runner.app at the zip root, and preserve symlinks.
+          zip -qry "$ipa_name" Payload
           rm -rf Payload
 
           if [ ! -f "$ipa_name" ]; then
