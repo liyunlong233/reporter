@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -22,36 +23,59 @@ class PdfGenerator {
         _preferencesRepository = preferencesRepository;
 
   Future<void> generateRecordingReport() async {
-    final chineseFont = await _loadChineseFont();
-    final logoBytes = await _loadLogoImage();
-    final allEntries = await _recordingRepository.getAllRecordings();
-    final appSettings = await _settingsRepository.getSettings();
-    final preferences = await _preferencesRepository.getPreferences();
-    
-    final includeDiscarded = preferences?.includeDiscardedInPDF ?? true;
-    final entries = includeDiscarded 
-        ? allEntries 
-        : allEntries.where((entry) => !entry.isDiscarded).toList();
+    try {
+      final chineseFont = await _loadChineseFont();
+      final logoBytes = await _loadLogoImage();
 
-    final pdf = pw.Document(
-      theme: pw.ThemeData.withFont(base: chineseFont),
-    );
+      List<RecordingEntry> allEntries;
+      try {
+        allEntries = await _recordingRepository.getAllRecordings();
+      } catch (e) {
+        throw Exception('获取录音记录失败: $e');
+      }
 
-    final pages = _buildPdfContent(entries, appSettings, logoBytes, chineseFont);
+      AppSettings? appSettings;
+      try {
+        appSettings = await _settingsRepository.getSettings();
+      } catch (e) {
+        debugPrint('获取应用设置失败: $e');
+      }
 
-    for (var page in pages) {
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          margin: pw.EdgeInsets.all(30),
-          build: (context) => page,
-        ),
+      final preferences = await _preferencesRepository.getPreferences();
+
+      final includeDiscarded = preferences?.includeDiscardedInPDF ?? true;
+      final entries = includeDiscarded
+          ? allEntries
+          : allEntries.where((entry) => !entry.isDiscarded).toList();
+
+      if (entries.isEmpty) {
+        throw Exception('没有可导出的录音记录');
+      }
+
+      final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(base: chineseFont),
       );
-    }
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) => pdf.save(),
-    );
+      final pages = _buildPdfContent(entries, appSettings, logoBytes, chineseFont);
+
+      for (var page in pages) {
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            margin: pw.EdgeInsets.all(30),
+            build: (context) => page,
+          ),
+        );
+      }
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) => pdf.save(),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('生成PDF失败: $e');
+      debugPrint('堆栈跟踪: $stackTrace');
+      rethrow;
+    }
   }
 
   List<pw.Widget> _buildPdfContent(

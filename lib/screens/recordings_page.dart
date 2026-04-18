@@ -106,54 +106,54 @@ class _RecordingsPageState extends State<RecordingsPage> {
           trackChecked: List.from(_trackCheckedStates),
         ),
       );
-      setState(() => _currentEntryId = newEntry);
+      if (mounted) {
+        setState(() => _currentEntryId = newEntry);
+      }
     }
   }
 
   Future<void> _clearForm() async {
     final settings = await widget.settingsRepository.getSettings();
+    if (settings != null) {
+      _channelCount = settings.channelCount;
+    }
+    
     final lastEntry = await widget.recordingRepository.getLatestRecording();
-
-    if (mounted) {
-      setState(() {
-        if (settings != null) {
-          _channelCount = settings.channelCount;
-        }
-
-        _currentEntryId = null;
-        _isDiscarded = false;
-        _startTCController.clear();
-        _notesController.clear();
-
-        _fileNameController.text = _generateNextFileName();
-
-        if (lastEntry != null) {
-          _sceneController.text = lastEntry.scene;
-          _slateController.text = lastEntry.slate;
-
-          if (lastEntry.isDiscarded) {
-            _takeController.text = _incrementTake(lastEntry.take);
-          } else {
-            _takeController.clear();
-          }
-
-          for (var i = 0; i < _channelCount; i++) {
-            _trackControllers[i].text = lastEntry.tracks[i] ?? _lastTrackNames[i];
-            _trackCheckedStates[i] = lastEntry.trackChecked[i];
-            _lastTrackNames[i] = _trackControllers[i].text;
-            _lastTrackCheckedStates[i] = _trackCheckedStates[i];
-            _originalTrackNames[i] = _trackControllers[i].text;
-          }
+    
+    setState(() {
+      _currentEntryId = null;
+      _isDiscarded = false;
+      _startTCController.clear();
+      _notesController.clear();
+      
+      _fileNameController.text = _generateNextFileName();
+      
+      if (lastEntry != null) {
+        _sceneController.text = lastEntry.scene;
+        _slateController.text = lastEntry.slate;
+        
+        if (lastEntry.isDiscarded) {
+          _takeController.text = _incrementTake(lastEntry.take);
         } else {
           _takeController.clear();
-          for (var i = 0; i < _channelCount; i++) {
-            _trackControllers[i].text = _lastTrackNames[i];
-            _trackCheckedStates[i] = _lastTrackCheckedStates[i];
-            _originalTrackNames[i] = _lastTrackNames[i];
-          }
         }
-      });
-    }
+        
+        for (var i = 0; i < _channelCount; i++) {
+          _trackControllers[i].text = lastEntry.tracks[i] ?? _lastTrackNames[i];
+          _trackCheckedStates[i] = lastEntry.trackChecked[i];
+          _lastTrackNames[i] = _trackControllers[i].text;
+          _lastTrackCheckedStates[i] = _trackCheckedStates[i];
+          _originalTrackNames[i] = _trackControllers[i].text;
+        }
+      } else {
+        _takeController.clear();
+        for (var i = 0; i < _channelCount; i++) {
+          _trackControllers[i].text = _lastTrackNames[i];
+          _trackCheckedStates[i] = _lastTrackCheckedStates[i];
+          _originalTrackNames[i] = _lastTrackNames[i];
+        }
+      }
+    });
     await _loadExistingRecordings();
   }
 
@@ -170,47 +170,42 @@ class _RecordingsPageState extends State<RecordingsPage> {
 
   Future<void> _loadLastInputValues() async {
     final settings = await widget.settingsRepository.getSettings();
+    if (settings != null) {
+      _channelCount = settings.channelCount;
+    }
+    
     final lastEntry = await widget.recordingRepository.getLatestRecording();
-
-    if (mounted) {
-      setState(() {
-        if (settings != null) {
-          _channelCount = settings.channelCount;
-        }
-
-        if (lastEntry != null) {
-          _currentEntryId = lastEntry.id;
-          _fileNameController.text = lastEntry.fileName;
-          _startTCController.text = lastEntry.startTC;
-          _sceneController.text = lastEntry.scene;
-          _takeController.text = lastEntry.take;
-          _slateController.text = lastEntry.slate;
-          _notesController.text = lastEntry.notes;
-          _isDiscarded = lastEntry.isDiscarded;
-
-          _updateFileNameFormat(lastEntry.fileName);
-
-          for (var i = 0; i < _channelCount; i++) {
-            _trackControllers[i].text = lastEntry.tracks[i] ?? _lastTrackNames[i];
-            _lastTrackNames[i] = _trackControllers[i].text;
-            _trackCheckedStates[i] = lastEntry.trackChecked[i];
-            _lastTrackCheckedStates[i] = lastEntry.trackChecked[i];
-            _originalTrackNames[i] = lastEntry.tracks[i] ?? '';
-          }
-        } else {
-          _lastFileNamePrefix = 'REC_';
-          _lastFileNameNumber = 0;
-          _lastFileNameDigits = 3;
-          _fileNameController.text = 'REC_001';
-          for (var i = 0; i < _channelCount; i++) {
-            _trackControllers[i].text = '';
-            _lastTrackNames[i] = '';
-            _trackCheckedStates[i] = false;
-            _lastTrackCheckedStates[i] = false;
-            _originalTrackNames[i] = '';
-          }
-        }
-      });
+    if (lastEntry != null) {
+      _currentEntryId = lastEntry.id;
+      _fileNameController.text = lastEntry.fileName;
+      _startTCController.text = lastEntry.startTC;
+      _sceneController.text = lastEntry.scene;
+      _takeController.text = lastEntry.take;
+      _slateController.text = lastEntry.slate;
+      _notesController.text = lastEntry.notes;
+      _isDiscarded = lastEntry.isDiscarded;
+      
+      _updateFileNameFormat(lastEntry.fileName);
+      
+      for (var i = 0; i < _channelCount; i++) {
+        _trackControllers[i].text = lastEntry.tracks[i] ?? _lastTrackNames[i];
+        _lastTrackNames[i] = _trackControllers[i].text;
+        _trackCheckedStates[i] = lastEntry.trackChecked[i];
+        _lastTrackCheckedStates[i] = lastEntry.trackChecked[i];
+        _originalTrackNames[i] = lastEntry.tracks[i] ?? '';
+      }
+    } else {
+      _lastFileNamePrefix = 'REC_';
+      _lastFileNameNumber = 0;
+      _lastFileNameDigits = 3;
+      _fileNameController.text = 'REC_001';
+      for (var i = 0; i < _channelCount; i++) {
+        _trackControllers[i].text = '';
+        _lastTrackNames[i] = '';
+        _trackCheckedStates[i] = false;
+        _lastTrackCheckedStates[i] = false;
+        _originalTrackNames[i] = '';
+      }
     }
   }
 
@@ -248,50 +243,59 @@ class _RecordingsPageState extends State<RecordingsPage> {
     });
   }
 
+  Future<void> _handleBackPress() async {
+    try {
+      if (Platform.isIOS) {
+        await _saveCurrentInput();
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        return;
+      }
+      final shouldPop = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('保存更改'),
+          content: const Text('是否要保存当前输入再退出？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('返回但不保存'),
+            ),
+            TextButton(
+              onPressed: () async {
+                await _saveCurrentInput();
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              child: const Text('保存并返回'),
+            ),
+          ],
+        ),
+      );
+      if (shouldPop == true && mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      debugPrint('返回时出错: $e');
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            if (Platform.isIOS) {
-              await _saveCurrentInput();
-              if (mounted) {
-                Navigator.of(context).pop();
-              }
-              return;
-            }
-            final shouldPop = await showDialog<bool>(
-              context: context,
-              builder: (dialogContext) => AlertDialog(
-                title: const Text('保存更改'),
-                content: const Text('是否要保存当前输入再退出？'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, false),
-                    child: const Text('取消'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(dialogContext, true),
-                    child: const Text('返回但不保存'),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      await _saveCurrentInput();
-                      if (dialogContext.mounted) {
-                        Navigator.pop(dialogContext, true);
-                      }
-                    },
-                    child: const Text('保存并返回'),
-                  ),
-                ],
-              ),
-            );
-            if (shouldPop == true && mounted) {
-              Navigator.of(context).pop();
-            }
-          },
+          onPressed: _handleBackPress,
         ),
         title: const Text('录音记录'),
         actions: [
@@ -629,55 +633,65 @@ class _RecordingsPageState extends State<RecordingsPage> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
+
     _formKey.currentState!.save();
-    
+
     _updateFileNameFormat(_fileNameController.text);
-    
+
     final tracks = List<String?>.generate(
       _channelCount,
       (i) => _trackControllers[i].text.isEmpty ? null : _trackControllers[i].text,
     );
-    
-    if (_currentEntryId != null) {
-      final existingEntry = _entries.firstWhere((entry) => entry.id == _currentEntryId);
-      final updatedEntry = existingEntry.copyWith(
-        fileName: _fileNameController.text,
-        startTC: _startTCController.text,
-        scene: _sceneController.text,
-        take: _takeController.text,
-        slate: _slateController.text,
-        notes: _notesController.text,
-        tracks: tracks,
-        trackChecked: List.from(_trackCheckedStates),
-      );
-      await _updateEntry(updatedEntry);
-    } else {
-      final entry = RecordingEntry.withTracks(
-        fileName: _fileNameController.text,
-        startTC: _startTCController.text,
-        scene: _sceneController.text,
-        take: _takeController.text,
-        slate: _slateController.text,
-        isDiscarded: _isDiscarded,
-        notes: _notesController.text,
-        createdAt: DateTime.now(),
-        tracks: tracks,
-        trackChecked: List.from(_trackCheckedStates),
-      );
 
-      await widget.recordingRepository.saveRecording(entry);
-    }
-    
-    if (!mounted) return;
-    
-    await _loadExistingRecordings();
-    _clearForm();
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('记录已保存')),
-      );
+    try {
+      if (_currentEntryId != null) {
+        final existingEntry = _entries.firstWhere((entry) => entry.id == _currentEntryId);
+        final updatedEntry = existingEntry.copyWith(
+          fileName: _fileNameController.text,
+          startTC: _startTCController.text,
+          scene: _sceneController.text,
+          take: _takeController.text,
+          slate: _slateController.text,
+          notes: _notesController.text,
+          tracks: tracks,
+          trackChecked: List.from(_trackCheckedStates),
+        );
+        await _updateEntry(updatedEntry);
+      } else {
+        final entry = RecordingEntry.withTracks(
+          fileName: _fileNameController.text,
+          startTC: _startTCController.text,
+          scene: _sceneController.text,
+          take: _takeController.text,
+          slate: _slateController.text,
+          isDiscarded: _isDiscarded,
+          notes: _notesController.text,
+          createdAt: DateTime.now(),
+          tracks: tracks,
+          trackChecked: List.from(_trackCheckedStates),
+        );
+
+        await widget.recordingRepository.saveRecording(entry);
+      }
+
+      if (!mounted) return;
+
+      await _loadExistingRecordings();
+      _clearForm();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('记录已保存')),
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('保存录音记录失败: $e');
+      debugPrint('堆栈跟踪: $stackTrace');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存失败: $e')),
+        );
+      }
     }
   }
 

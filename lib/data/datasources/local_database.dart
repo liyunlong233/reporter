@@ -44,7 +44,47 @@ class LocalDatabase {
         track5 TEXT,
         track6 TEXT,
         track7 TEXT,
-        track8 TEXT
+        track8 TEXT,
+        track9 TEXT,
+        track10 TEXT,
+        track11 TEXT,
+        track12 TEXT,
+        track13 TEXT,
+        track14 TEXT,
+        track15 TEXT,
+        track16 TEXT,
+        track17 TEXT,
+        track18 TEXT,
+        track19 TEXT,
+        track20 TEXT,
+        track21 TEXT,
+        track22 TEXT,
+        track23 TEXT,
+        track24 TEXT,
+        track1_checked INTEGER DEFAULT 0,
+        track2_checked INTEGER DEFAULT 0,
+        track3_checked INTEGER DEFAULT 0,
+        track4_checked INTEGER DEFAULT 0,
+        track5_checked INTEGER DEFAULT 0,
+        track6_checked INTEGER DEFAULT 0,
+        track7_checked INTEGER DEFAULT 0,
+        track8_checked INTEGER DEFAULT 0,
+        track9_checked INTEGER DEFAULT 0,
+        track10_checked INTEGER DEFAULT 0,
+        track11_checked INTEGER DEFAULT 0,
+        track12_checked INTEGER DEFAULT 0,
+        track13_checked INTEGER DEFAULT 0,
+        track14_checked INTEGER DEFAULT 0,
+        track15_checked INTEGER DEFAULT 0,
+        track16_checked INTEGER DEFAULT 0,
+        track17_checked INTEGER DEFAULT 0,
+        track18_checked INTEGER DEFAULT 0,
+        track19_checked INTEGER DEFAULT 0,
+        track20_checked INTEGER DEFAULT 0,
+        track21_checked INTEGER DEFAULT 0,
+        track22_checked INTEGER DEFAULT 0,
+        track23_checked INTEGER DEFAULT 0,
+        track24_checked INTEGER DEFAULT 0
       )
     ''');
 
@@ -59,7 +99,19 @@ class LocalDatabase {
         fileFormat TEXT,
         frameRate REAL,
         rollNumber TEXT,
-        projectDate TEXT NOT NULL
+        projectDate TEXT NOT NULL,
+        channelCount INTEGER DEFAULT 8
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE app_preferences(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        includeDiscardedInPDF INTEGER NOT NULL DEFAULT 1,
+        defaultFileFormats TEXT NOT NULL DEFAULT '',
+        defaultEquipmentModels TEXT NOT NULL DEFAULT '',
+        selectedFileFormat TEXT,
+        selectedEquipmentModel TEXT
       )
     ''');
   }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:reporter/data/repositories/local_preferences_repository.dart';
 import 'package:reporter/models/app_preferences.dart';
@@ -27,42 +29,39 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadSettings() async {
     final settings = await widget.settingsRepository.getSettings();
-    final prefs = await widget.preferencesRepository.getPreferences();
+    if (settings != null) {
+      _projectNameController.text = settings.projectName;
+      _companyController.text = settings.productionCompany;
+      _engineerController.text = settings.soundEngineer;
+      _boomOperatorController.text = settings.boomOperator;
+      _equipmentController.text = settings.equipmentModel;
+      _formatController.text = settings.fileFormat;
+      _frameRateController.text = settings.frameRate.toString();
+      _rollNumberController.text = settings.rollNumber;
+      _selectedDate = settings.projectDate;
+      _selectedChannelCount = settings.channelCount;
+    }
 
-    if (mounted) {
+    final prefs = await widget.preferencesRepository.getPreferences();
+    if (prefs != null) {
       setState(() {
-        if (settings != null) {
-          _projectNameController.text = settings.projectName;
-          _companyController.text = settings.productionCompany;
-          _engineerController.text = settings.soundEngineer;
-          _boomOperatorController.text = settings.boomOperator;
-          _equipmentController.text = settings.equipmentModel;
-          _formatController.text = settings.fileFormat;
-          _frameRateController.text = settings.frameRate.toString();
-          _rollNumberController.text = settings.rollNumber;
-          _selectedDate = settings.projectDate;
-          _selectedChannelCount = settings.channelCount;
+        _fileFormats = prefs.defaultFileFormats;
+        _equipmentModels = prefs.defaultEquipmentModels;
+        _selectedFileFormat = prefs.selectedFileFormat;
+        _selectedEquipmentModel = prefs.selectedEquipmentModel;
+
+        if (_selectedFileFormat != null && !_fileFormats.contains(_selectedFileFormat)) {
+          _selectedFileFormat = null;
+        }
+        if (_selectedEquipmentModel != null && !_equipmentModels.contains(_selectedEquipmentModel)) {
+          _selectedEquipmentModel = null;
         }
 
-        if (prefs != null) {
-          _fileFormats = prefs.defaultFileFormats;
-          _equipmentModels = prefs.defaultEquipmentModels;
-          _selectedFileFormat = prefs.selectedFileFormat;
-          _selectedEquipmentModel = prefs.selectedEquipmentModel;
-
-          if (_selectedFileFormat != null && !_fileFormats.contains(_selectedFileFormat)) {
-            _selectedFileFormat = null;
-          }
-          if (_selectedEquipmentModel != null && !_equipmentModels.contains(_selectedEquipmentModel)) {
-            _selectedEquipmentModel = null;
-          }
-
-          if (_selectedFileFormat != null && _selectedFileFormat!.isNotEmpty) {
-            _formatController.text = _selectedFileFormat!;
-          }
-          if (_selectedEquipmentModel != null && _selectedEquipmentModel!.isNotEmpty) {
-            _equipmentController.text = _selectedEquipmentModel!;
-          }
+        if (_selectedFileFormat != null && _selectedFileFormat!.isNotEmpty) {
+          _formatController.text = _selectedFileFormat!;
+        }
+        if (_selectedEquipmentModel != null && _selectedEquipmentModel!.isNotEmpty) {
+          _equipmentController.text = _selectedEquipmentModel!;
         }
       });
     }
@@ -114,9 +113,18 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadSettings();
-    });
+    _loadSettings();
+  }
+
+  Future<void> _handleBackPress() async {
+    try {
+      await _saveCurrentInput();
+    } catch (e) {
+      debugPrint('保存设置时出错: $e');
+    }
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -125,12 +133,7 @@ class _SettingsPageState extends State<SettingsPage> {
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () async {
-              await _saveCurrentInput();
-              if (mounted) {
-                Navigator.of(context).pop();
-              }
-            },
+            onPressed: _handleBackPress,
           ),
           title: const Text('项目设置'),
         ),
