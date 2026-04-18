@@ -126,6 +126,10 @@ jobs:
           mkdir -p Payload
           ditto "$archive_app" Payload/Runner.app
           xattr -cr Payload/Runner.app 2>/dev/null || true
+          rm -rf Payload/Runner.app/_CodeSignature
+          find Payload/Runner.app/Frameworks -name '_CodeSignature' -type d -prune -exec rm -rf {} +
+          find Payload/Runner.app -name 'CodeResources' -type f -delete 2>/dev/null || true
+          rm -f Payload/Runner.app/embedded.mobileprovision
           find Payload -name '.DS_Store' -delete 2>/dev/null || true
           find Payload -name '._*' -delete 2>/dev/null || true
 
@@ -159,6 +163,11 @@ jobs:
 
           if zipinfo -1 "$ipa_name" | grep -E '^(__MACOSX/|.*\/\._.*)$' >/dev/null; then
             echo "Error: IPA still contains macOS metadata files."
+            exit 1
+          fi
+
+          if zipinfo -1 "$ipa_name" | grep -E '(^|/)(_CodeSignature/|CodeResources$|embedded\.mobileprovision$)' >/dev/null; then
+            echo "Error: IPA still contains signing artifacts that should be removed before sideload re-signing."
             exit 1
           fi
 
