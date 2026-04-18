@@ -133,6 +133,14 @@ jobs:
           find Payload -name '.DS_Store' -delete 2>/dev/null || true
           find Payload -name '._*' -delete 2>/dev/null || true
 
+          # Ensure required fields for Sideloadly are present in Info.plist
+          /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string 13.0" Payload/Runner.app/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :DTPlatformVersion string 17.5" Payload/Runner.app/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :DTPlatformName string iphoneos" Payload/Runner.app/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleSupportedPlatforms array" Payload/Runner.app/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleSupportedPlatforms:0 string iPhoneOS" Payload/Runner.app/Info.plist 2>/dev/null || true
+
+          # Create IPA with explicit options to avoid weird compression headers
           COPYFILE_DISABLE=1 zip -X -0 -y -r "$ipa_name" Payload
           rm -rf Payload
 
