@@ -84,7 +84,7 @@ jobs:
           pod install --repo-update || pod install
         shell: bash
 
-      - name: Build iOS IPA (No Codesign)
+      - name: Build iOS archive (No Codesign)
         run: flutter build ipa --release --no-codesign
         shell: bash
 
@@ -103,21 +103,34 @@ jobs:
           fi
         shell: bash
 
-      - name: Check generated IPA exists
+      - name: Check generated archive exists
         run: |
           set -euo pipefail
-          if [ ! -f "build/ios/ipa/Runner.ipa" ]; then
-            echo "Error: Flutter did not generate build/ios/ipa/Runner.ipa."
+          archive_app="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+
+          if [ ! -d "$archive_app" ]; then
+            echo "Error: Flutter did not generate ${archive_app}."
             exit 1
           fi
         shell: bash
 
-      - name: Rename nosign IPA for sideload tools
+      - name: Create nosign IPA from archive for sideload tools
         run: |
           set -euo pipefail
           ipa_name="Reporter_ios_${{ github.ref_name }}_nosign.ipa"
-          rm -f "$ipa_name"
-          cp build/ios/ipa/Runner.ipa "$ipa_name"
+          archive_app="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app"
+
+          rm -rf Payload "$ipa_name"
+          xattr -cr "$archive_app" 2>/dev/null || true
+
+          mkdir -p Payload
+          ditto "$archive_app" Payload/Runner.app
+          xattr -cr Payload/Runner.app 2>/dev/null || true
+          find Payload -name '.DS_Store' -delete 2>/dev/null || true
+          find Payload -name '._*' -delete 2>/dev/null || true
+
+          COPYFILE_DISABLE=1 zip -X -0 -y -r "$ipa_name" Payload
+          rm -rf Payload
 
           if [ ! -f "$ipa_name" ]; then
             echo "Error: IPA file not created."
