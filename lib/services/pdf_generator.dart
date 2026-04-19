@@ -331,11 +331,6 @@ class PdfGenerator {
                                 fontSize: 14,
                               ),
                             ),
-                          if (hasChanged && trackName.isNotEmpty)
-                            pw.Text(
-                              trackName,
-                              style: pw.TextStyle(font: chineseFont),
-                            ),
                         ],
                       ),
                     );

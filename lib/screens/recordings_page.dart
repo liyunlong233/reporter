@@ -752,10 +752,37 @@ class _RecordingsPageState extends State<RecordingsPage> {
           const SnackBar(content: Text('PDF报告已生成')),
         );
       }
+    } on Exception catch (e) {
+      if (mounted) {
+        final errorMessage = e.toString().replaceFirst('Exception: ', '');
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('无法生成PDF'),
+            content: Text(errorMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('生成PDF失败: $e')),
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('生成PDF失败'),
+            content: Text('发生未知错误: $e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
         );
       }
     }
