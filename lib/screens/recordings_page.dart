@@ -31,8 +31,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
   final TextEditingController _fileNameController = TextEditingController();
   final TextEditingController _startTCController = TextEditingController();
   final TextEditingController _sceneController = TextEditingController();
+  final TextEditingController _shotController = TextEditingController();
   final TextEditingController _takeController = TextEditingController();
-  final TextEditingController _slateController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   bool _isDiscarded = false;
   List<RecordingEntry> _filteredEntries = [];
@@ -62,8 +62,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
     _fileNameController.dispose();
     _startTCController.dispose();
     _sceneController.dispose();
+    _shotController.dispose();
     _takeController.dispose();
-    _slateController.dispose();
     _notesController.dispose();
     for (var controller in _trackControllers) {
       controller.dispose();
@@ -97,8 +97,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
           fileName: _fileNameController.text,
           startTC: _startTCController.text,
           scene: _sceneController.text,
-          take: _takeController.text,
-          slate: _slateController.text,
+          take: _shotController.text,
+          slate: _takeController.text,
           notes: _notesController.text,
           isDiscarded: _isDiscarded,
           createdAt: DateTime.now(),
@@ -130,12 +130,12 @@ class _RecordingsPageState extends State<RecordingsPage> {
       
       if (lastEntry != null) {
         _sceneController.text = lastEntry.scene;
-        _slateController.text = lastEntry.slate;
-        
+        _takeController.text = lastEntry.slate;
+
         if (lastEntry.isDiscarded) {
-          _takeController.text = _incrementTake(lastEntry.take);
+          _shotController.text = _incrementTake(lastEntry.take);
         } else {
-          _takeController.clear();
+          _shotController.clear();
         }
         
         for (var i = 0; i < _channelCount; i++) {
@@ -146,7 +146,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
           _originalTrackNames[i] = _trackControllers[i].text;
         }
       } else {
-        _takeController.clear();
+        _shotController.clear();
         for (var i = 0; i < _channelCount; i++) {
           _trackControllers[i].text = _lastTrackNames[i];
           _trackCheckedStates[i] = _lastTrackCheckedStates[i];
@@ -180,8 +180,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
       _fileNameController.text = lastEntry.fileName;
       _startTCController.text = lastEntry.startTC;
       _sceneController.text = lastEntry.scene;
-      _takeController.text = lastEntry.take;
-      _slateController.text = lastEntry.slate;
+      _shotController.text = lastEntry.take;
+      _takeController.text = lastEntry.slate;
       _notesController.text = lastEntry.notes;
       _isDiscarded = lastEntry.isDiscarded;
       
@@ -361,7 +361,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildTextFormField('镜', _slateController),
+                    child: _buildTextFormField('镜', _shotController),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -542,8 +542,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
       _fileNameController.text = entry.fileName;
       _startTCController.text = entry.startTC;
       _sceneController.text = entry.scene;
-      _takeController.text = entry.take;
-      _slateController.text = entry.slate;
+      _shotController.text = entry.take;
+      _takeController.text = entry.slate;
       _notesController.text = entry.notes;
       
       for (var i = 0; i < RecordingEntry.maxTracks; i++) {
@@ -650,8 +650,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
           fileName: _fileNameController.text,
           startTC: _startTCController.text,
           scene: _sceneController.text,
-          take: _takeController.text,
-          slate: _slateController.text,
+          take: _shotController.text,
+          slate: _takeController.text,
           notes: _notesController.text,
           tracks: tracks,
           trackChecked: List.from(_trackCheckedStates),
@@ -662,8 +662,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
           fileName: _fileNameController.text,
           startTC: _startTCController.text,
           scene: _sceneController.text,
-          take: _takeController.text,
-          slate: _slateController.text,
+          take: _shotController.text,
+          slate: _takeController.text,
           isDiscarded: _isDiscarded,
           notes: _notesController.text,
           createdAt: DateTime.now(),
@@ -706,8 +706,8 @@ class _RecordingsPageState extends State<RecordingsPage> {
       fileName: _fileNameController.text,
       startTC: _startTCController.text,
       scene: _sceneController.text,
-      take: _takeController.text,
-      slate: _slateController.text,
+      take: _shotController.text,
+      slate: _takeController.text,
       notes: _notesController.text,
       tracks: _trackControllers.map((c) => c.text.isEmpty ? null : c.text).toList(),
       trackChecked: List.from(_trackCheckedStates),
