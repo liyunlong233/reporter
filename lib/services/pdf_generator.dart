@@ -180,7 +180,7 @@ class PdfGenerator {
   }
 
   Future<pw.Font> _loadChineseFont() async {
-    final fontData = await rootBundle.load('assets/fonts/NotoSansSCMedium-4.ttf');
+    final fontData = await rootBundle.load('assets/fonts/NotoSansSC-Regular.ttf');
     return pw.Font.ttf(fontData);
   }
 
@@ -201,13 +201,13 @@ class PdfGenerator {
 
   pw.Widget _buildLogo(Uint8List logoBytes) {
     const double logoMaxWidth = 100;
-    const double logoMaxHeight = 50;
-    const double pageMargin = 30;
-    const double headerHeight = 60;
+    const double logoMaxHeight = 40;
+    const double pageMarginRight = 30;
+    const double logoTopOffset = 10;
 
     return pw.Positioned(
-      right: pageMargin,
-      top: pageMargin,
+      right: pageMarginRight,
+      top: logoTopOffset,
       child: pw.Container(
         width: logoMaxWidth,
         height: logoMaxHeight,
