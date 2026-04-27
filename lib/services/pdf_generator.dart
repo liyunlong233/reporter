@@ -207,8 +207,7 @@ class PdfGenerator {
   }
 
   pw.Widget _buildLogo(Uint8List logoBytes) {
-    const double logoMaxWidth = 100;
-    const double logoMaxHeight = 40;
+    const double headerFontSize = 40;
     const double pageMarginRight = 30;
     const double logoTopOffset = 10;
 
@@ -216,8 +215,7 @@ class PdfGenerator {
       right: pageMarginRight,
       top: logoTopOffset,
       child: pw.Container(
-        width: logoMaxWidth,
-        height: logoMaxHeight,
+        height: headerFontSize,
         alignment: pw.Alignment.centerRight,
         child: pw.Image(
           pw.MemoryImage(logoBytes),
