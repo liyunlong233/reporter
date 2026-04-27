@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
@@ -25,7 +27,6 @@ class PdfGenerator {
   Future<void> generateRecordingReport() async {
     try {
       final chineseFont = await _loadChineseFont();
-      final logoBytes = await _loadLogoImage();
 
       List<RecordingEntry> allEntries;
       try {
@@ -44,6 +45,9 @@ class PdfGenerator {
       final preferences = await _preferencesRepository.getPreferences();
 
       final includeDiscarded = preferences?.includeDiscardedInPDF ?? true;
+      final customLogoPath = preferences?.customLogoPath;
+      final logoBytes = await _loadLogoImage(customLogoPath);
+
       final entries = includeDiscarded
           ? allEntries
           : allEntries.where((entry) => !entry.isDiscarded).toList();
@@ -180,19 +184,38 @@ class PdfGenerator {
     return pw.Font.ttf(fontData);
   }
 
-  Future<Uint8List> _loadLogoImage() async {
-    final logoData = await rootBundle.load('assets/fonts/logo.png');
+  Future<Uint8List> _loadLogoImage(String? customLogoPath) async {
+    if (customLogoPath != null && customLogoPath.isNotEmpty) {
+      try {
+        final file = File(customLogoPath);
+        if (await file.exists()) {
+          return await file.readAsBytes();
+        }
+      } catch (e) {
+        debugPrint('读取自定义LOGO失败: $e');
+      }
+    }
+    final logoData = await rootBundle.load('assets/fonts/cropped-三轮声学实验室_Logo_v1_20251126-1-150x150.png');
     return logoData.buffer.asUint8List();
   }
 
   pw.Widget _buildLogo(Uint8List logoBytes) {
+    const double logoMaxWidth = 100;
+    const double logoMaxHeight = 50;
+    const double pageMargin = 30;
+    const double headerHeight = 60;
+
     return pw.Positioned(
-      right: 20,
-      top: 5,
-      child: pw.Image(
-        pw.MemoryImage(logoBytes),
-        width: 160,
-        height: 160,
+      right: pageMargin,
+      top: pageMargin,
+      child: pw.Container(
+        width: logoMaxWidth,
+        height: logoMaxHeight,
+        alignment: pw.Alignment.centerRight,
+        child: pw.Image(
+          pw.MemoryImage(logoBytes),
+          fit: pw.BoxFit.contain,
+        ),
       ),
     );
   }
@@ -326,8 +349,7 @@ class PdfGenerator {
                           if (isChecked && !hasChanged)
                             pw.Text(
                               '✓',
-                              style: pw.TextStyle(
-                                font: chineseFont,
+                              style: const pw.TextStyle(
                                 fontSize: 14,
                               ),
                             ),

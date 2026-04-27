@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:reporter/data/repositories/local_preferences_repository.dart';
 import 'package:reporter/models/app_preferences.dart';
@@ -15,6 +18,7 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
   bool _includeDiscardedInPDF = true;
   final List<String> _fileFormats = [];
   final List<String> _equipmentModels = [];
+  String? _customLogoPath;
   final _fileFormatController = TextEditingController();
   final _equipmentModelController = TextEditingController();
 
@@ -31,6 +35,7 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
         _includeDiscardedInPDF = prefs.includeDiscardedInPDF;
         _fileFormats.addAll(prefs.defaultFileFormats);
         _equipmentModels.addAll(prefs.defaultEquipmentModels);
+        _customLogoPath = prefs.customLogoPath;
       });
     }
   }
@@ -40,6 +45,7 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
       includeDiscardedInPDF: _includeDiscardedInPDF,
       defaultFileFormats: _fileFormats,
       defaultEquipmentModels: _equipmentModels,
+      customLogoPath: _customLogoPath,
     );
     await widget.preferencesRepository.savePreferences(prefs);
     if (mounted) {
@@ -47,6 +53,24 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
         const SnackBar(content: Text('基本设置保存成功')),
       );
     }
+  }
+
+  Future<void> _pickLogo() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+    );
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _customLogoPath = result.files.single.path;
+      });
+    }
+  }
+
+  void _removeLogo() {
+    setState(() {
+      _customLogoPath = null;
+    });
   }
 
   void _addFileFormat() {
@@ -135,6 +159,63 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
                   onDeleted: () => _removeFileFormat(entry.key),
                 );
               }).toList(),
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const Text('PDF LOGO', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _customLogoPath != null
+                      ? Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                File(_customLogoPath!),
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: Colors.grey.shade300,
+                                    child: const Icon(Icons.broken_image),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _customLogoPath!.split(Platform.pathSeparator).last,
+                                style: const TextStyle(fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Text('使用默认LOGO', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _pickLogo,
+                  child: const Text('选择图片'),
+                ),
+                if (_customLogoPath != null) ...[
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _removeLogo,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('恢复默认'),
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 16),
             const Divider(),

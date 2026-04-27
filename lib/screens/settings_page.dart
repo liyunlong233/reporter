@@ -188,7 +188,7 @@ class _SettingsPageState extends State<SettingsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DropdownButtonFormField<String>(
-          value: _selectedEquipmentModel,
+          initialValue: _selectedEquipmentModel,
           decoration: const InputDecoration(labelText: '设备型号'),
           hint: const Text('选择设备型号'),
           items: uniqueModels.map((model) {
@@ -230,7 +230,7 @@ class _SettingsPageState extends State<SettingsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DropdownButtonFormField<String>(
-          value: _selectedFileFormat,
+          initialValue: _selectedFileFormat,
           decoration: const InputDecoration(labelText: '文件格式'),
           hint: const Text('选择文件格式'),
           items: uniqueFormats.map((format) {

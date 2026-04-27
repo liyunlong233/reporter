@@ -19,7 +19,7 @@ class LocalDatabase {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -176,6 +176,9 @@ class LocalDatabase {
           selectedEquipmentModel TEXT
         )
       ''');
+    }
+    if (oldVersion < 8) {
+      await db.execute('ALTER TABLE app_preferences ADD COLUMN customLogoPath TEXT');
     }
   }
 

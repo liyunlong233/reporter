@@ -51,11 +51,7 @@ class MyApp extends StatelessWidget {
           color: Colors.black,
           size: 24,
         ),
-        textTheme: Theme.of(context).textTheme.copyWith(
-          bodyLarge: TextStyle(fontFamily: 'NotoSansSC'),
-          bodyMedium: TextStyle(fontFamily: 'NotoSansSC'),
-          titleLarge: TextStyle(fontFamily: 'NotoSansSC'),
-        ),
+        textTheme: Theme.of(context).textTheme,
       ),
       initialRoute: '/',
       routes: {

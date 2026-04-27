@@ -5,6 +5,7 @@ class AppPreferences {
   final List<String> defaultEquipmentModels;
   final String? selectedFileFormat;
   final String? selectedEquipmentModel;
+  final String? customLogoPath;
 
   AppPreferences({
     this.id,
@@ -13,6 +14,7 @@ class AppPreferences {
     this.defaultEquipmentModels = const [],
     this.selectedFileFormat,
     this.selectedEquipmentModel,
+    this.customLogoPath,
   });
 
   Map<String, dynamic> toMap() {
@@ -22,6 +24,7 @@ class AppPreferences {
       'defaultEquipmentModels': defaultEquipmentModels.join('|'),
       'selectedFileFormat': selectedFileFormat,
       'selectedEquipmentModel': selectedEquipmentModel,
+      'customLogoPath': customLogoPath,
     };
   }
 
@@ -41,6 +44,7 @@ class AppPreferences {
           [],
       selectedFileFormat: map['selectedFileFormat'] as String?,
       selectedEquipmentModel: map['selectedEquipmentModel'] as String?,
+      customLogoPath: map['customLogoPath'] as String?,
     );
   }
 
@@ -51,6 +55,7 @@ class AppPreferences {
     List<String>? defaultEquipmentModels,
     String? selectedFileFormat,
     String? selectedEquipmentModel,
+    String? customLogoPath,
   }) {
     return AppPreferences(
       id: id ?? this.id,
@@ -59,6 +64,7 @@ class AppPreferences {
       defaultEquipmentModels: defaultEquipmentModels ?? this.defaultEquipmentModels,
       selectedFileFormat: selectedFileFormat ?? this.selectedFileFormat,
       selectedEquipmentModel: selectedEquipmentModel ?? this.selectedEquipmentModel,
+      customLogoPath: customLogoPath ?? this.customLogoPath,
     );
   }
 }
