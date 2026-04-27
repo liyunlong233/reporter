@@ -25,13 +25,14 @@ environment:
 flutter:
   uses-material-design: true
   assets:
+    - assets/fonts/NotoSansSC-Regular.ttf
     - assets/fonts/NotoSansSCMedium-4.ttf
     - assets/fonts/cropped-三轮声学实验室_Logo_v1_20251126-1-150x150.png
     - assets/fonts/Reporter.png
   fonts:
     - family: NotoSansSC
       fonts:
-        - asset: assets/fonts/NotoSansSCMedium-4.ttf
+        - asset: assets/fonts/NotoSansSC-Regular.ttf
 
 
 
