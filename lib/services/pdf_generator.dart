@@ -27,6 +27,7 @@ class PdfGenerator {
   Future<void> generateRecordingReport() async {
     try {
       final chineseFont = await _loadChineseFont();
+      final symbolFont = await _loadSymbolFont();
 
       List<RecordingEntry> allEntries;
       try {
@@ -60,7 +61,7 @@ class PdfGenerator {
         theme: pw.ThemeData.withFont(base: chineseFont),
       );
 
-      final pages = _buildPdfContent(entries, appSettings, logoBytes, chineseFont);
+      final pages = _buildPdfContent(entries, appSettings, logoBytes, chineseFont, symbolFont);
 
       for (var page in pages) {
         pdf.addPage(
@@ -87,13 +88,14 @@ class PdfGenerator {
     AppSettings? appSettings,
     Uint8List logoBytes,
     pw.Font chineseFont,
+    pw.Font symbolFont,
   ) {
     final channelCount = appSettings?.channelCount ?? 8;
     final pages = <pw.Widget>[];
     var currentStart = 0;
 
     pw.Widget buildFirstPage(List<RecordingEntry> entries, AppSettings? appSettings,
-        Uint8List logoBytes, pw.Font chineseFont, int channelCount, bool showSignature) {
+        Uint8List logoBytes, pw.Font chineseFont, pw.Font symbolFont, int channelCount, bool showSignature) {
       return pw.Stack(
         children: [
           _buildLogo(logoBytes),
@@ -103,7 +105,7 @@ class PdfGenerator {
               pw.Header(text: '同期录音报告', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
               _buildInfoTable(appSettings, chineseFont),
               pw.SizedBox(height: 20),
-              _buildRecordingTable(entries, chineseFont, channelCount),
+              _buildRecordingTable(entries, chineseFont, symbolFont, channelCount),
               if (showSignature) _buildSignatureArea(chineseFont)
             ],
           ),
@@ -122,7 +124,7 @@ class PdfGenerator {
       final firstPageEnd = firstPageMaxEntries.clamp(0, totalEntries);
       final firstPageEntries = entries.sublist(0, firstPageEnd);
       final isLastPage = firstPageEnd >= totalEntries;
-      pages.add(buildFirstPage(firstPageEntries, appSettings, logoBytes, chineseFont, channelCount, isLastPage));
+      pages.add(buildFirstPage(firstPageEntries, appSettings, logoBytes, chineseFont, symbolFont, channelCount, isLastPage));
       currentStart = firstPageEnd;
     }
 
@@ -147,7 +149,7 @@ class PdfGenerator {
                 children: [
                   pw.Header(text: '同期录音报告', level: 0, textStyle: pw.TextStyle(font: chineseFont, fontSize: 40)),
                   pw.SizedBox(height: 20),
-                  _buildRecordingTable(pageEntries, chineseFont, channelCount),
+                  _buildRecordingTable(pageEntries, chineseFont, symbolFont, channelCount),
                   if (isLastPage) _buildSignatureArea(chineseFont)
                 ],
               ),
@@ -181,6 +183,11 @@ class PdfGenerator {
 
   Future<pw.Font> _loadChineseFont() async {
     final fontData = await rootBundle.load('assets/fonts/NotoSansSC-Regular.ttf');
+    return pw.Font.ttf(fontData);
+  }
+
+  Future<pw.Font> _loadSymbolFont() async {
+    final fontData = await rootBundle.load('assets/fonts/NotoSansSCMedium-4.ttf');
     return pw.Font.ttf(fontData);
   }
 
@@ -262,6 +269,7 @@ class PdfGenerator {
   pw.Widget _buildRecordingTable(
     List<RecordingEntry> entries,
     pw.Font chineseFont,
+    pw.Font symbolFont,
     int channelCount,
   ) {
     final headers = _getTableHeaders(channelCount);
@@ -349,7 +357,8 @@ class PdfGenerator {
                           if (isChecked && !hasChanged)
                             pw.Text(
                               '✓',
-                              style: const pw.TextStyle(
+                              style: pw.TextStyle(
+                                font: symbolFont,
                                 fontSize: 14,
                               ),
                             ),
