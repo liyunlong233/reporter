@@ -46,8 +46,9 @@ class PdfGenerator {
       final preferences = await _preferencesRepository.getPreferences();
 
       final includeDiscarded = preferences?.includeDiscardedInPDF ?? true;
+      final addLogoToPDF = preferences?.addLogoToPDF ?? true;
       final customLogoPath = preferences?.customLogoPath;
-      final logoBytes = await _loadLogoImage(customLogoPath);
+      final logoBytes = addLogoToPDF ? await _loadLogoImage(customLogoPath) : null;
 
       final entries = includeDiscarded
           ? allEntries
@@ -86,7 +87,7 @@ class PdfGenerator {
   List<pw.Widget> _buildPdfContent(
     List<RecordingEntry> entries,
     AppSettings? appSettings,
-    Uint8List logoBytes,
+    Uint8List? logoBytes,
     pw.Font chineseFont,
     pw.Font symbolFont,
   ) {
@@ -95,10 +96,10 @@ class PdfGenerator {
     var currentStart = 0;
 
     pw.Widget buildFirstPage(List<RecordingEntry> entries, AppSettings? appSettings,
-        Uint8List logoBytes, pw.Font chineseFont, pw.Font symbolFont, int channelCount, bool showSignature) {
+        Uint8List? logoBytes, pw.Font chineseFont, pw.Font symbolFont, int channelCount, bool showSignature) {
       return pw.Stack(
         children: [
-          _buildLogo(logoBytes),
+          if (logoBytes != null) _buildLogo(logoBytes),
           pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -143,7 +144,7 @@ class PdfGenerator {
         pages.add(
           pw.Stack(
             children: [
-              _buildLogo(logoBytes),
+              if (logoBytes != null) _buildLogo(logoBytes),
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
@@ -164,7 +165,7 @@ class PdfGenerator {
       pages.add(
         pw.Stack(
           children: [
-            _buildLogo(logoBytes),
+            if (logoBytes != null) _buildLogo(logoBytes),
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [

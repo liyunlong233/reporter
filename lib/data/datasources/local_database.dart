@@ -19,7 +19,7 @@ class LocalDatabase {
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -179,6 +179,9 @@ class LocalDatabase {
     }
     if (oldVersion < 8) {
       await db.execute('ALTER TABLE app_preferences ADD COLUMN customLogoPath TEXT');
+    }
+    if (oldVersion < 9) {
+      await db.execute('ALTER TABLE app_preferences ADD COLUMN addLogoToPDF INTEGER NOT NULL DEFAULT 1');
     }
   }
 

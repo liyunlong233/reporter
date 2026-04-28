@@ -16,6 +16,7 @@ class BasicSettingsPage extends StatefulWidget {
 
 class _BasicSettingsPageState extends State<BasicSettingsPage> {
   bool _includeDiscardedInPDF = true;
+  bool _addLogoToPDF = true;
   final List<String> _fileFormats = [];
   final List<String> _equipmentModels = [];
   String? _customLogoPath;
@@ -33,6 +34,7 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
     if (prefs != null) {
       setState(() {
         _includeDiscardedInPDF = prefs.includeDiscardedInPDF;
+        _addLogoToPDF = prefs.addLogoToPDF;
         _fileFormats.addAll(prefs.defaultFileFormats);
         _equipmentModels.addAll(prefs.defaultEquipmentModels);
         _customLogoPath = prefs.customLogoPath;
@@ -43,6 +45,7 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
   Future<void> _savePreferences() async {
     final prefs = AppPreferences(
       includeDiscardedInPDF: _includeDiscardedInPDF,
+      addLogoToPDF: _addLogoToPDF,
       defaultFileFormats: _fileFormats,
       defaultEquipmentModels: _equipmentModels,
       customLogoPath: _customLogoPath,
@@ -123,6 +126,15 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
               onChanged: (value) {
                 setState(() {
                   _includeDiscardedInPDF = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: const Text('添加Logo到PDF'),
+              value: _addLogoToPDF,
+              onChanged: (value) {
+                setState(() {
+                  _addLogoToPDF = value;
                 });
               },
             ),

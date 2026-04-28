@@ -1,6 +1,7 @@
 class AppPreferences {
   final int? id;
   final bool includeDiscardedInPDF;
+  final bool addLogoToPDF;
   final List<String> defaultFileFormats;
   final List<String> defaultEquipmentModels;
   final String? selectedFileFormat;
@@ -10,6 +11,7 @@ class AppPreferences {
   AppPreferences({
     this.id,
     this.includeDiscardedInPDF = true,
+    this.addLogoToPDF = true,
     this.defaultFileFormats = const [],
     this.defaultEquipmentModels = const [],
     this.selectedFileFormat,
@@ -20,6 +22,7 @@ class AppPreferences {
   Map<String, dynamic> toMap() {
     return {
       'includeDiscardedInPDF': includeDiscardedInPDF ? 1 : 0,
+      'addLogoToPDF': addLogoToPDF ? 1 : 0,
       'defaultFileFormats': defaultFileFormats.join('|'),
       'defaultEquipmentModels': defaultEquipmentModels.join('|'),
       'selectedFileFormat': selectedFileFormat,
@@ -32,6 +35,7 @@ class AppPreferences {
     return AppPreferences(
       id: map['id'] as int?,
       includeDiscardedInPDF: (map['includeDiscardedInPDF'] as int?) == 1,
+      addLogoToPDF: (map['addLogoToPDF'] as int?) == 1,
       defaultFileFormats: (map['defaultFileFormats'] as String?)
               ?.split('|')
               .where((s) => s.isNotEmpty)
@@ -51,6 +55,7 @@ class AppPreferences {
   AppPreferences copyWith({
     int? id,
     bool? includeDiscardedInPDF,
+    bool? addLogoToPDF,
     List<String>? defaultFileFormats,
     List<String>? defaultEquipmentModels,
     String? selectedFileFormat,
@@ -60,6 +65,7 @@ class AppPreferences {
     return AppPreferences(
       id: id ?? this.id,
       includeDiscardedInPDF: includeDiscardedInPDF ?? this.includeDiscardedInPDF,
+      addLogoToPDF: addLogoToPDF ?? this.addLogoToPDF,
       defaultFileFormats: defaultFileFormats ?? this.defaultFileFormats,
       defaultEquipmentModels: defaultEquipmentModels ?? this.defaultEquipmentModels,
       selectedFileFormat: selectedFileFormat ?? this.selectedFileFormat,
