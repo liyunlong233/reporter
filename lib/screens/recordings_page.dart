@@ -5,6 +5,7 @@ import 'package:reporter/data/repositories/local_preferences_repository.dart';
 import 'package:reporter/models/recording_entry.dart';
 import 'package:reporter/repositories/recording_repository.dart';
 import 'package:reporter/repositories/settings_repository.dart';
+import 'package:reporter/services/csv_exporter.dart';
 import 'package:reporter/services/pdf_generator.dart';
 import 'package:reporter/validators/validators.dart';
 
@@ -47,6 +48,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
   String _lastFileNamePrefix = 'REC_';
   int _lastFileNameNumber = 0;
   int _lastFileNameDigits = 3;
+  List<String> _quickNotes = [];
 
   @override
   void initState() {
@@ -54,6 +56,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadExistingRecordings();
       await _loadLastInputValues();
+      await _loadQuickNotes();
     });
   }
 
@@ -218,6 +221,15 @@ class _RecordingsPageState extends State<RecordingsPage> {
     });
   }
 
+  Future<void> _loadQuickNotes() async {
+    final prefs = await widget.preferencesRepository.getPreferences();
+    if (prefs != null) {
+      setState(() {
+        _quickNotes = prefs.quickNotes;
+      });
+    }
+  }
+
   void _applyFilters() {
     setState(() {
       _filteredEntries = _entries.where((entry) {
@@ -315,6 +327,11 @@ class _RecordingsPageState extends State<RecordingsPage> {
             tooltip: '生成PDF报告',
           ),
           IconButton(
+            icon: const Icon(Icons.table_chart),
+            onPressed: _exportToCsv,
+            tooltip: '导出CSV',
+          ),
+          IconButton(
             icon: const Icon(Icons.filter_list),
             onPressed: _showFilterDialog,
             tooltip: '筛选记录',
@@ -357,15 +374,30 @@ class _RecordingsPageState extends State<RecordingsPage> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildTextFormField('场', _sceneController),
+                    child: Column(
+                      children: [
+                        _buildTextFormField('场', _sceneController),
+                        _buildNumberButtons(_sceneController),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildTextFormField('镜', _shotController),
+                    child: Column(
+                      children: [
+                        _buildTextFormField('镜', _shotController),
+                        _buildNumberButtons(_shotController),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildTextFormField('次', _takeController),
+                    child: Column(
+                      children: [
+                        _buildTextFormField('次', _takeController),
+                        _buildNumberButtons(_takeController),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -387,7 +419,7 @@ class _RecordingsPageState extends State<RecordingsPage> {
                 ],
               ),
               const SizedBox(height: 8),
-              _buildTextFormField('备注', _notesController),
+              _buildNotesField(),
               const SizedBox(height: 8),
               _buildTrackCheckboxes(),
               const SizedBox(height: 16),
@@ -617,6 +649,114 @@ class _RecordingsPageState extends State<RecordingsPage> {
     );
   }
 
+  Widget _buildNotesField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: _notesController,
+          decoration: InputDecoration(
+            labelText: '备注',
+            contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.clear, size: 18),
+              onPressed: () {
+                _notesController.clear();
+                setState(() {});
+              },
+              tooltip: '清空备注',
+            ),
+          ),
+        ),
+        if (_quickNotes.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _quickNotes.map((note) {
+              return ActionChip(
+                label: Text(note, style: const TextStyle(fontSize: 12)),
+                onPressed: () {
+                  final currentText = _notesController.text;
+                  if (currentText.isEmpty) {
+                    _notesController.text = note;
+                  } else {
+                    _notesController.text = '$currentText; $note';
+                  }
+                  setState(() {});
+                },
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildNumberButtons(TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 28,
+            height: 28,
+            child: IconButton(
+              icon: const Icon(Icons.remove, size: 16),
+              onPressed: () => _decrementNumber(controller),
+              padding: EdgeInsets.zero,
+              tooltip: '减1',
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 28,
+            height: 28,
+            child: IconButton(
+              icon: const Icon(Icons.add, size: 16),
+              onPressed: () => _incrementNumber(controller),
+              padding: EdgeInsets.zero,
+              tooltip: '加1',
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            height: 28,
+            child: TextButton(
+              onPressed: () {
+                controller.clear();
+                setState(() {});
+              },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('清空', style: TextStyle(fontSize: 11)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _incrementNumber(TextEditingController controller) {
+    final text = controller.text;
+    final number = int.tryParse(text) ?? 0;
+    controller.text = (number + 1).toString();
+    setState(() {});
+  }
+
+  void _decrementNumber(TextEditingController controller) {
+    final text = controller.text;
+    final number = int.tryParse(text) ?? 0;
+    if (number > 0) {
+      controller.text = (number - 1).toString();
+      setState(() {});
+    }
+  }
+
   Widget _buildDiscardSwitch() {
     return SwitchListTile(
       title: const Text('标记为废弃'),
@@ -677,7 +817,13 @@ class _RecordingsPageState extends State<RecordingsPage> {
       if (!mounted) return;
 
       await _loadExistingRecordings();
-      _clearForm();
+      _notesController.clear();
+      _startTCController.clear();
+      _updateFileNameFormat(_fileNameController.text);
+      _fileNameController.text = _generateNextFileName();
+      setState(() {
+        _currentEntryId = null;
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -718,7 +864,10 @@ class _RecordingsPageState extends State<RecordingsPage> {
     if (!mounted) return;
     
     await _loadExistingRecordings();
-    _clearForm();
+    _notesController.clear();
+    setState(() {
+      _currentEntryId = null;
+    });
   }
 
   Future<void> _deleteEntry(RecordingEntry entry) async {
@@ -775,6 +924,54 @@ class _RecordingsPageState extends State<RecordingsPage> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('生成PDF失败'),
+            content: Text('发生未知错误: $e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportToCsv() async {
+    try {
+      final csvExporter = CsvExporter(
+        recordingRepository: widget.recordingRepository,
+        settingsRepository: widget.settingsRepository,
+      );
+      await csvExporter.exportToCsv();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CSV已导出')),
+        );
+      }
+    } on Exception catch (e) {
+      if (mounted) {
+        final errorMessage = e.toString().replaceFirst('Exception: ', '');
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('无法导出CSV'),
+            content: Text(errorMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('导出CSV失败'),
             content: Text('发生未知错误: $e'),
             actions: [
               TextButton(

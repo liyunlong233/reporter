@@ -19,7 +19,7 @@ class LocalDatabase {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -182,6 +182,9 @@ class LocalDatabase {
     }
     if (oldVersion < 9) {
       await db.execute('ALTER TABLE app_preferences ADD COLUMN addLogoToPDF INTEGER NOT NULL DEFAULT 1');
+    }
+    if (oldVersion < 10) {
+      await db.execute('ALTER TABLE app_preferences ADD COLUMN quickNotes TEXT NOT NULL DEFAULT \'有飞机飞过|发生削波|无线干扰|无线发生摩擦|线路接触不良\'');
     }
   }
 

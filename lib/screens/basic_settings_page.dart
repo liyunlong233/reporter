@@ -19,9 +19,11 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
   bool _addLogoToPDF = true;
   final List<String> _fileFormats = [];
   final List<String> _equipmentModels = [];
+  final List<String> _quickNotes = [];
   String? _customLogoPath;
   final _fileFormatController = TextEditingController();
   final _equipmentModelController = TextEditingController();
+  final _quickNoteController = TextEditingController();
 
   @override
   void initState() {
@@ -37,6 +39,7 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
         _addLogoToPDF = prefs.addLogoToPDF;
         _fileFormats.addAll(prefs.defaultFileFormats);
         _equipmentModels.addAll(prefs.defaultEquipmentModels);
+        _quickNotes.addAll(prefs.quickNotes);
         _customLogoPath = prefs.customLogoPath;
       });
     }
@@ -48,6 +51,7 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
       addLogoToPDF: _addLogoToPDF,
       defaultFileFormats: _fileFormats,
       defaultEquipmentModels: _equipmentModels,
+      quickNotes: _quickNotes,
       customLogoPath: _customLogoPath,
     );
     await widget.preferencesRepository.savePreferences(prefs);
@@ -103,6 +107,21 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
   void _removeEquipmentModel(int index) {
     setState(() {
       _equipmentModels.removeAt(index);
+    });
+  }
+
+  void _addQuickNote() {
+    if (_quickNoteController.text.isNotEmpty) {
+      setState(() {
+        _quickNotes.add(_quickNoteController.text.trim());
+        _quickNoteController.clear();
+      });
+    }
+  }
+
+  void _removeQuickNote(int index) {
+    setState(() {
+      _quickNotes.removeAt(index);
     });
   }
 
@@ -261,6 +280,41 @@ class _BasicSettingsPageState extends State<BasicSettingsPage> {
                   label: Text(entry.value),
                   deleteIcon: const Icon(Icons.close, size: 18),
                   onDeleted: () => _removeEquipmentModel(entry.key),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            const Text('快捷备注', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _quickNoteController,
+                    decoration: const InputDecoration(
+                      labelText: '添加快捷备注',
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => _addQuickNote(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _addQuickNote,
+                  child: const Text('添加'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _quickNotes.asMap().entries.map((entry) {
+                return Chip(
+                  label: Text(entry.value),
+                  deleteIcon: const Icon(Icons.close, size: 18),
+                  onDeleted: () => _removeQuickNote(entry.key),
                 );
               }).toList(),
             ),
