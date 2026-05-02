@@ -357,95 +357,111 @@ class _RecordingsPageState extends State<RecordingsPage> {
   Widget _buildQuickInputCard() {
     return Card(
       margin: const EdgeInsets.all(8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTextFormField('文件名', _fileNameController),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      children: [
-                        _buildTextFormField('场', _sceneController),
-                        _buildNumberButtons(_sceneController),
-                      ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 280),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildCompactTextField('文件名', _fileNameController),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        _buildTextFormField('镜', _shotController),
-                        _buildNumberButtons(_shotController),
-                      ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildCompactTextField('场', _sceneController),
+                          _buildNumberButtons(_sceneController),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      children: [
-                        _buildTextFormField('次', _takeController),
-                        _buildNumberButtons(_takeController),
-                      ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildCompactTextField('镜', _shotController),
+                          _buildNumberButtons(_shotController),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildTextFormField('StartTC', _startTCController),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.access_time),
-                    onPressed: _autoFillStartTC,
-                    tooltip: '自动填充时码',
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _buildDiscardSwitch(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildNotesField(),
-              const SizedBox(height: 8),
-              _buildTrackCheckboxes(),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.settings),
-                    label: const Text('轨道设置'),
-                    onPressed: _showTrackSettings,
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    icon: const Icon(Icons.clear),
-                    label: const Text('清空'),
-                    onPressed: _clearForm,
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.save),
-                    label: const Text('保存'),
-                    onPressed: _addEntry,
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildCompactTextField('次', _takeController),
+                          _buildNumberButtons(_takeController),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildCompactTextField('StartTC', _startTCController),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.access_time, size: 20),
+                      onPressed: _autoFillStartTC,
+                      tooltip: '自动填充时码',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildDiscardSwitch(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                _buildCompactNotesField(),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      icon: const Icon(Icons.settings, size: 18),
+                      label: const Text('轨道', style: TextStyle(fontSize: 12)),
+                      onPressed: _showTrackSettings,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      icon: const Icon(Icons.clear, size: 18),
+                      label: const Text('清空', style: TextStyle(fontSize: 12)),
+                      onPressed: _clearForm,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.save, size: 18),
+                      label: const Text('保存', style: TextStyle(fontSize: 12)),
+                      onPressed: _addEntry,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -649,6 +665,19 @@ class _RecordingsPageState extends State<RecordingsPage> {
     );
   }
 
+  Widget _buildCompactTextField(String label, TextEditingController controller) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      ),
+      style: const TextStyle(fontSize: 14),
+      validator: (value) => label == '文件名' ? (value!.isEmpty ? '请输入$label' : null) : null,
+    );
+  }
+
   Widget _buildNotesField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -685,6 +714,57 @@ class _RecordingsPageState extends State<RecordingsPage> {
                   }
                   setState(() {});
                 },
+              );
+            }).toList(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCompactNotesField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextFormField(
+          controller: _notesController,
+          decoration: InputDecoration(
+            labelText: '备注',
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.clear, size: 16),
+              onPressed: () {
+                _notesController.clear();
+                setState(() {});
+              },
+              tooltip: '清空备注',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+          ),
+          style: const TextStyle(fontSize: 14),
+        ),
+        if (_quickNotes.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Wrap(
+            spacing: 6,
+            runSpacing: 2,
+            children: _quickNotes.map((note) {
+              return ActionChip(
+                label: Text(note, style: const TextStyle(fontSize: 10)),
+                onPressed: () {
+                  final currentText = _notesController.text;
+                  if (currentText.isEmpty) {
+                    _notesController.text = note;
+                  } else {
+                    _notesController.text = '$currentText; $note';
+                  }
+                  setState(() {});
+                },
+                padding: EdgeInsets.zero,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               );
             }).toList(),
           ),
